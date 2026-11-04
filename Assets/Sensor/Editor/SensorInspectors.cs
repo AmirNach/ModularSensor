@@ -56,6 +56,14 @@ namespace SensorSystem
             SensorEditorStyles.Apply(root);
             root.AddToClassList("sensor-inspector");
 
+            // Looks the same as the [Header] titles of the fields below.
+            var headerContainer = new VisualElement();
+            headerContainer.AddToClassList("unity-decorator-drawers-container");
+            var header = new Label("References");
+            header.AddToClassList("unity-header-drawer__label");
+            headerContainer.Add(header);
+            root.Add(headerContainer);
+
             var settingsRow = new VisualElement();
             settingsRow.AddToClassList("sensor-settings-row");
             var settingsField = new PropertyField(serializedObject.FindProperty(SettingsField), "Sensor settings");
