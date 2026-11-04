@@ -43,7 +43,7 @@ namespace SensorSystem
             }
         }
 
-        public string GetIdendtifier() => _identifier;
+        public string GetIdentifier() => _identifier;
         public Vector3 GetCenterPosition() => _collider != null ? _collider.bounds.center : transform.position;
         public string GetDetectionType() => _entityType.ToString();
         public float GetVelocity() => _velocity;

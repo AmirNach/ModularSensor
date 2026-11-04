@@ -106,7 +106,7 @@ namespace SensorSystem
                 .OrderBy(GetName)
                 .ToList();
 
-            string key = string.Join("|", targets.Select(target => target.GetIdendtifier()));
+            string key = string.Join("|", targets.Select(target => target.GetIdentifier()));
             if (key != _targetListKey)
             {
                 _targetListKey = key;
@@ -174,7 +174,7 @@ namespace SensorSystem
         private static string GetName(IDetectable target)
         {
             if (target is Component component) return component.name;
-            return target.IsFake ? $"Fake {target.GetDetectionType()}" : target.GetIdendtifier();
+            return target.IsFake ? $"Fake {target.GetDetectionType()}" : target.GetIdentifier();
         }
     }
 }

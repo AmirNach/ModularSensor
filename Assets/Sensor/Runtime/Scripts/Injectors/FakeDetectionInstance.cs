@@ -19,7 +19,7 @@ namespace SensorSystem
             Bounds = new Bounds(position, Vector3.one);
         }
 
-        public string GetIdendtifier() => _id;
+        public string GetIdentifier() => _id;
         public Vector3 GetCenterPosition() => _position;
         public string GetDetectionType() => EntityType.ToString();
         public float GetVelocity() => -1f;

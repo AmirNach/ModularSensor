@@ -142,7 +142,7 @@ Open `Window > General > Test Runner`. The edit mode tests (`Sensor.Tests`) cove
 Assets/Sensor/
   Runtime/        Sensor.Runtime assembly: sensor, detector, conditions, injectors, utilities
   Editor/         Sensor.Editor assembly: tree editor, inspectors, window, styles
-  Exemple/        example scripts and the example scene builder
+  Example/        example scripts and the example scene builder
   Tests/          edit mode and play mode tests
 ```
 
@@ -150,3 +150,7 @@ Assets/Sensor/
 
 - `EntityType` is a placeholder enum (`Unknown`, `Person`, `Vehicle`, `Aircraft`, `Drone`). Edit it to match your project.
 - The repository is a full Unity project so the example scene and tests run as they are. To use the sensor elsewhere, copy the `Assets/Sensor` folder.
+
+## License
+
+[MIT](LICENSE). It covers the code in `Assets/Sensor`. The rest of the project (`Assets/Settings`, `Assets/TutorialInfo` and similar) comes from Unity's standard URP project template and stays under Unity's own terms.

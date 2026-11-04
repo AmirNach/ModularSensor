@@ -7,7 +7,7 @@ using UnityEngine;
 /// <summary>Builds a working example scene and default settings assets for this project's render pipeline.</summary>
 public static class SensorExampleSceneBuilder
 {
-    private const string ScenePath = "Assets/Sensor/Exemple/Scenes/SensorExempleScene.unity";
+    private const string ScenePath = "Assets/Sensor/Example/Scenes/SensorExampleScene.unity";
     private const string SensorSettingsPath = "Assets/Sensor/Runtime/ScriptableObjects/SensorSettingsSO.asset";
     private const string DetectorSettingsPath = "Assets/Sensor/Runtime/ScriptableObjects/DetectorSettingsSO.asset";
     private const int TargetCount = 5;

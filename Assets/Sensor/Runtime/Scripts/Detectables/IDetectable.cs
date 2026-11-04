@@ -8,7 +8,7 @@ namespace SensorSystem
         Bounds Bounds { get; set; }
         bool IsFake { get; }
 
-        string GetIdendtifier();
+        string GetIdentifier();
         Vector3 GetCenterPosition();
         string GetDetectionType();
         float GetVelocity();

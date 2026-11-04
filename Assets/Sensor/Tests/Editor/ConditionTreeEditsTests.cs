@@ -184,7 +184,7 @@ namespace SensorSystem.Tests
         [Test]
         public void Injectors_CanBeAddedMovedDuplicatedRemoved()
         {
-            var first = new FakeRandomReflecedEntitiesDetections();
+            var first = new FakeRandomReflectedEntitiesDetections();
             var second = new FakeRandomDetectionInViewPort();
 
             ConditionTreeEdits.AddInjector(_settings, first);
@@ -255,7 +255,7 @@ namespace SensorSystem.Tests
         public void TypeMenu_ListsInjectors()
         {
             List<System.Type> types = ConditionTypes.GetEntries(typeof(DetectionInjector)).Select(entry => entry.Type).ToList();
-            CollectionAssert.Contains(types, typeof(FakeRandomReflecedEntitiesDetections));
+            CollectionAssert.Contains(types, typeof(FakeRandomReflectedEntitiesDetections));
             CollectionAssert.Contains(types, typeof(FakeRandomDetectionInViewPort));
         }
     }

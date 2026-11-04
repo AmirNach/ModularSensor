@@ -81,7 +81,7 @@ namespace SensorSystem.Tests
         [UnityTest]
         public IEnumerator Window_ListsInjectors()
         {
-            _settings.Injectors.Add(new FakeRandomReflecedEntitiesDetections());
+            _settings.Injectors.Add(new FakeRandomReflectedEntitiesDetections());
             yield return OpenWindow();
 
             Assert.AreEqual(1, Cards("sensor-card--injector").Count);

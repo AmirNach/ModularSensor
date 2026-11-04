@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
 namespace SensorSystem
 {
@@ -9,8 +10,10 @@ namespace SensorSystem
     /// Spawns fake targets at random times, types and distances, simulating false positives.
     /// Spawn times are checked on each refresh, so the refresh rate limits their precision.
     /// </summary>
+    // Assets saved before the spelling fix still load under the old name.
+    [MovedFrom(true, "SensorSystem", "Sensor.Runtime", "FakeRandomReflecedEntitiesDetections")]
     [Serializable, ConditionMenu("Fake/Random detections")]
-    public class FakeRandomReflecedEntitiesDetections : DetectionInjector
+    public class FakeRandomReflectedEntitiesDetections : DetectionInjector
     {
         [Serializable]
         public class EntityWeights

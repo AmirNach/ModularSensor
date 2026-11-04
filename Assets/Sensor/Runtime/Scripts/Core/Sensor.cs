@@ -213,7 +213,7 @@ namespace SensorSystem
             _detectedObjectsBlackList.Add(detection);
         }
 
-        public void RemoveDetectionToBlackList(IDetectable detection)
+        public void RemoveDetectionFromBlackList(IDetectable detection)
         {
             _detectedObjectsBlackList.Remove(detection);
         }

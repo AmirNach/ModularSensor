@@ -14,7 +14,7 @@ namespace SensorSystem.Tests
             public EntityType EntityType { get; set; }
             public Bounds Bounds { get; set; } = new Bounds(Vector3.zero, Vector3.one);
             public bool IsFake => false;
-            public string GetIdendtifier() => "stub";
+            public string GetIdentifier() => "stub";
             public Vector3 GetCenterPosition() => Position;
             public string GetDetectionType() => EntityType.ToString();
             public float GetVelocity() => 0f;

@@ -5,7 +5,7 @@ namespace SensorSystem
 {
     /// <summary>Spawns fake targets inside a viewport rectangle. Needs a SensorWithCamera to use the rectangle.</summary>
     [Serializable, ConditionMenu("Fake/Random detections in viewport")]
-    public class FakeRandomDetectionInViewPort : FakeRandomReflecedEntitiesDetections
+    public class FakeRandomDetectionInViewPort : FakeRandomReflectedEntitiesDetections
     {
         [Tooltip("Viewport coordinates, 0 to 1.")]
         public Vector2 TopLeftCorner = new Vector2(0f, 1f);
