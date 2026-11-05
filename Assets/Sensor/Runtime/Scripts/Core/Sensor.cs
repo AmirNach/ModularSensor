@@ -35,15 +35,15 @@ namespace SensorSystem
         [Tooltip("Layers this sensor looks for objects on.")]
         [SerializeField] protected LayerMask DetectableLayers = ~0;
 
-        [Header("Gizmos")]
-        [SerializeField] protected bool ShowSensorFrustum = true;
-        [SerializeField] protected Color SensorFrustumColor = Color.red;
 
         public event Action<Detection> OnNewDetectionEvent;
         public event Action<Detection> OnLostDetectionEvent;
 
         public SensorType Type => SensorType;
         public SensorSettings Settings => _settings;
+
+        /// <summary>What the conditions with "Show visual" on drew in the last refresh. Empty when none has it on.</summary>
+        public ConditionVisuals Visuals => _visuals;
 
         /// <summary>This sensor's own copy of the condition tree, safe to change at runtime.</summary>
         public Condition RuntimeRoot { get; private set; }
@@ -90,6 +90,7 @@ namespace SensorSystem
         private readonly List<IDetectable> _gained = new List<IDetectable>();
         private readonly List<IDetectable> _lost = new List<IDetectable>();
         private readonly EvaluationTrace _trace = new EvaluationTrace();
+        private readonly ConditionVisuals _visuals = new ConditionVisuals();
 
         private List<Condition> _runtimeNodes = new List<Condition>();
         private List<DetectionInjector> _runtimeInjectors = new List<DetectionInjector>();
@@ -228,6 +229,7 @@ namespace SensorSystem
             _seenById.Clear();
             _detectedById.Clear();
             _debugResults.Clear();
+            _visuals.Clear();
 
             foreach (DetectionInjector injector in _runtimeInjectors)
             {
@@ -310,6 +312,10 @@ namespace SensorSystem
         private void Refresh()
         {
             var context = new SensorContext(transform, ContextCamera, Time.time, _trace);
+            // The same context with somewhere to draw. Used for the targets that should be drawn.
+            bool anyVisuals = _runtimeNodes.Exists(node => node.WantsVisuals);
+            var visualContext = anyVisuals ? new SensorContext(transform, ContextCamera, Time.time, _trace, _visuals) : context;
+            _visuals.Clear();
 
             foreach (Condition node in _runtimeNodes)
             {
@@ -335,7 +341,9 @@ namespace SensorSystem
                 bool passed = false;
                 try
                 {
-                    passed = Condition.Run(RuntimeRoot, candidate, context);
+                    // With a picked object only that one is drawn, which keeps the scene readable and cheap.
+                    bool draw = debugTargetId == null || isDebugTarget;
+                    passed = Condition.Run(RuntimeRoot, candidate, draw ? visualContext : context);
                 }
                 catch (Exception e)
                 {
@@ -502,11 +510,18 @@ namespace SensorSystem
 #if UNITY_EDITOR
         protected virtual void OnDrawGizmos()
         {
-            if (!ShowSensorFrustum || _settings == null) return;
+            if (_settings == null) return;
 
-            Gizmos.color = SensorFrustumColor;
+            if (_visuals.Count > 0)
+            {
+                _visuals.Draw();
+                Gizmos.matrix = Matrix4x4.identity;
+            }
+
+            // Each condition that has its visual on draws its own shape, in its own color.
             foreach (Condition node in ConditionTree.Flatten(RuntimeRoot ?? _settings.Root))
             {
+                Gizmos.color = node is VisualCondition visual ? visual.GizmoColor : Color.white;
                 node.DrawGizmos(transform, ContextCamera);
             }
             Gizmos.matrix = Matrix4x4.identity;

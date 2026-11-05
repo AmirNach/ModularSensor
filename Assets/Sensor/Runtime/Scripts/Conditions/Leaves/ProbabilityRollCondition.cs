@@ -12,7 +12,7 @@ namespace SensorSystem
     /// Rolls only happen when the tree reaches this node, so an earlier failing condition in an And saves rolls.
     /// </summary>
     [Serializable]
-    public abstract class ProbabilityRollCondition : Condition
+    public abstract class ProbabilityRollCondition : VisualCondition
     {
         [Tooltip("On: once an object has been detected, it stays detected without rolling again, until it goes out of range or the sensor loses it. Off: the dice are rolled again on every refresh.")]
         [FormerlySerializedAs("DoesSaveDetectionAttempts")]
@@ -24,6 +24,8 @@ namespace SensorSystem
         [Tooltip("How many rolls each object gets before it can no longer be detected by this condition.")]
         [FormerlySerializedAs("MaxDetectionAttemptsPerEntity")]
         [Min(0)] public int MaxDetectionAttempts;
+
+        protected ProbabilityRollCondition() { VisualColor = new Color(0.75f, 0.4f, 1f); }
 
         [NonSerialized] private HashSet<string> _passedRoll;
         [NonSerialized] private Dictionary<string, int> _attempts;
@@ -37,6 +39,15 @@ namespace SensorSystem
         protected string AttemptsSummary => HasLimitedDetectionAttempts ? $", max {MaxDetectionAttempts} attempts" : "";
 
         public override bool Evaluate(IDetectable target, in SensorContext context)
+        {
+            bool passed = Roll(target, in context);
+
+            // A small cross above the target: green when the roll let it through, red when it did not.
+            VisualsFor(context)?.Cross(target.GetCenterPosition() + Vector3.up * 1.2f, 0.4f, ColorOf(passed));
+            return passed;
+        }
+
+        private bool Roll(IDetectable target, in SensorContext context)
         {
             // Remembered by ID, so a target that comes back as a new instance keeps its state.
             string id = target.GetIdentifier();

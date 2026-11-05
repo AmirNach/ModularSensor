@@ -22,6 +22,9 @@ namespace SensorSystem
         /// <summary>True when this condition only works on a sensor with a camera. The inspector warns about it.</summary>
         public virtual bool RequiresCamera => false;
 
+        /// <summary>True when this condition wants to draw what it did. The sensor then collects visuals for the refresh.</summary>
+        public virtual bool WantsVisuals => false;
+
         /// <summary>Called once per refresh, before any target is evaluated.</summary>
         public virtual void Prepare(in SensorContext context) { }
 

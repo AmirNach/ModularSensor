@@ -60,6 +60,18 @@ namespace SensorSystem
             row.AddToClassList("sensor-live-row");
             row.Add(new Label(node.DisplayName) { name = "title" });
 
+            if (node is VisualCondition visual)
+            {
+                var toggle = new Toggle("Visual")
+                {
+                    tooltip = "Show visual: draw what this condition did for each object, in the Scene view and in the Game view with Gizmos on.",
+                    value = visual.ShowVisual,
+                };
+                toggle.RegisterValueChangedCallback(change => visual.ShowVisual = change.newValue);
+                toggle.AddToClassList("sensor-visual-toggle");
+                row.Add(toggle);
+            }
+
             var status = new Label();
             status.AddToClassList("sensor-status");
             row.Add(status);

@@ -97,6 +97,10 @@ namespace SensorSystem
 
             var card = new NodeCard(title, badge, kindClass, () => node.Summary, ParameterEditor.Build(node), isOperator);
             parent.Add(card);
+            if (node is VisualCondition visual)
+            {
+                card.AddVisualToggle(visual);
+            }
             _cards.Add((node, card));
 
             var children = new List<Condition>();

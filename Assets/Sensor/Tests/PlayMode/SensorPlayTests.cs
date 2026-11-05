@@ -287,6 +287,29 @@ namespace SensorSystem.Tests
         }
 
         [UnityTest]
+        public IEnumerator ConditionVisuals_FollowEachConditionsSwitch_AndThePickedTarget()
+        {
+            GameObject first = CreateTarget(InFront);
+            CreateTarget(new Vector3(5f, 0f, 20f));
+            Sensor sensor = CreateSensor(CreateSettings(new WithRaycast()));
+
+            yield return new WaitForSeconds(SettleSeconds);
+            Assert.AreEqual(0, sensor.Visuals.Count, "Off by default.");
+
+            ((WithRaycast)sensor.RuntimeRoot).ShowVisual = true;
+            yield return new WaitForSeconds(SettleSeconds);
+            Assert.AreEqual(2, sensor.Visuals.Count, "One clear-line per object.");
+
+            sensor.DebugTarget = first.GetComponent<DetectableEntity>();
+            yield return new WaitForSeconds(SettleSeconds);
+            Assert.AreEqual(1, sensor.Visuals.Count, "Only the picked object is drawn.");
+
+            ((WithRaycast)sensor.RuntimeRoot).ShowVisual = false;
+            yield return new WaitForSeconds(SettleSeconds);
+            Assert.AreEqual(0, sensor.Visuals.Count);
+        }
+
+        [UnityTest]
         public IEnumerator DebugTarget_RecordsReachedNodesOnly()
         {
             GameObject target = CreateTarget(InFront);

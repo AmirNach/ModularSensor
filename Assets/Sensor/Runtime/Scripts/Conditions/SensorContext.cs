@@ -11,12 +11,16 @@ namespace SensorSystem
         public readonly float Now;
         public readonly EvaluationTrace Trace;
 
-        public SensorContext(Transform sensorTransform, Camera camera, float now, EvaluationTrace trace = null)
+        /// <summary>Where a condition can draw what it did for the target, or null when the sensor's condition visuals are off.</summary>
+        public readonly ConditionVisuals Visuals;
+
+        public SensorContext(Transform sensorTransform, Camera camera, float now, EvaluationTrace trace = null, ConditionVisuals visuals = null)
         {
             SensorTransform = sensorTransform;
             Camera = camera;
             Now = now;
             Trace = trace;
+            Visuals = visuals;
         }
     }
 

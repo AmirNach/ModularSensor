@@ -4,13 +4,15 @@ using UnityEngine;
 namespace SensorSystem
 {
     [Serializable, ConditionMenu("Spatial/In frustum")]
-    public class InFrustum : Condition
+    public class InFrustum : VisualCondition
     {
         [Tooltip("Ignored when the sensor has a camera, which uses the camera's frustum instead.")]
         [Range(1f, 179f)] public float HorizontalFov = 60f;
         [Range(1f, 179f)] public float VerticalFov = 40f;
         [Min(0.01f)] public float MinDistance = 0.1f;
         [Min(0.01f)] public float MaxDistance = 100f;
+
+        public InFrustum() { VisualColor = new Color(1f, 0.25f, 0.25f); }
 
         [NonSerialized] private Plane[] _planes;
 
@@ -39,6 +41,8 @@ namespace SensorSystem
 
         public override void DrawGizmos(Transform sensorTransform, Camera camera)
         {
+            if (!ShowVisual) return;
+
             // Drawn through the mask, so the lines stay out from behind the QA overlay in the Game view.
             if (camera != null)
             {

@@ -166,6 +166,7 @@ namespace SensorSystem
     {
         public readonly string Tooltip;
         public readonly string Header;
+        public readonly string ShowIf;
         public readonly bool HasMin;
         public readonly float Min;
         public readonly bool HasRange;
@@ -175,6 +176,7 @@ namespace SensorSystem
         {
             Tooltip = field.GetCustomAttribute<TooltipAttribute>()?.tooltip;
             Header = field.GetCustomAttribute<HeaderAttribute>()?.header;
+            ShowIf = field.GetCustomAttribute<ShowIfAttribute>()?.BoolField;
 
             var range = field.GetCustomAttribute<RangeAttribute>();
             var min = field.GetCustomAttribute<MinAttribute>();
@@ -227,7 +229,7 @@ namespace SensorSystem
                 }
 
                 FieldInfo captured = field;
-                parent.Add(CreateControl(
+                VisualElement control = CreateControl(
                     field.FieldType,
                     ParameterEditor.Nicify(field.Name),
                     pathPrefix + field.Name,
@@ -242,8 +244,23 @@ namespace SensorSystem
                             setOwner?.Invoke(owner);
                         }
                     },
-                    meta));
+                    meta);
+                parent.Add(control);
+                ApplyShowIf(control, meta, ownerType, getOwner);
             }
+        }
+
+        /// <summary>Hides a control while the bool field named by [ShowIf] is off, and follows that bool when it changes.</summary>
+        private void ApplyShowIf(VisualElement control, ParameterMeta meta, Type ownerType, Func<object> getOwner)
+        {
+            if (string.IsNullOrEmpty(meta.ShowIf)) return;
+
+            FieldInfo condition = ownerType.GetField(meta.ShowIf, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
+            if (condition == null || condition.FieldType != typeof(bool)) return;
+
+            void Update() => control.style.display = (bool)condition.GetValue(getOwner()) ? DisplayStyle.Flex : DisplayStyle.None;
+            Update();
+            _refreshers.Add(Update);
         }
 
         private VisualElement CreateControl(Type type, string label, string path, Func<object> get, Action<object> set, ParameterMeta meta)

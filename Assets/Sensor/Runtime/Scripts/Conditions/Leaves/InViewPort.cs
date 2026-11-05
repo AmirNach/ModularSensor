@@ -5,11 +5,13 @@ namespace SensorSystem
 {
     /// <summary>Needs a SensorWithCamera. Without a camera it never passes.</summary>
     [Serializable, ConditionMenu("Spatial/In viewport")]
-    public class InViewPort : Condition
+    public class InViewPort : VisualCondition
     {
         [Tooltip("Viewport coordinates, 0 to 1.")]
         public Vector2 TopLeftCorner = new Vector2(0f, 1f);
         public Vector2 BottomRightCorner = new Vector2(1f, 0f);
+
+        public InViewPort() { VisualColor = new Color(0.2f, 0.8f, 1f); }
 
         public override bool RequiresCamera => true;
         public override string Summary => $"X {TopLeftCorner.x:0.##}–{BottomRightCorner.x:0.##}, Y {BottomRightCorner.y:0.##}–{TopLeftCorner.y:0.##}";
@@ -19,9 +21,12 @@ namespace SensorSystem
             if (context.Camera == null) return false;
 
             Vector3 point = context.Camera.WorldToViewportPoint(target.GetCenterPosition());
-            return point.z > 0f
+            bool passed = point.z > 0f
                 && point.x >= TopLeftCorner.x && point.x <= BottomRightCorner.x
                 && point.y >= BottomRightCorner.y && point.y <= TopLeftCorner.y;
+
+            VisualsFor(context)?.Cross(target.GetCenterPosition(), 0.5f, ColorOf(passed));
+            return passed;
         }
     }
 }

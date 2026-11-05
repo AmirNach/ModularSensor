@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -19,6 +20,7 @@ namespace SensorSystem
         {
             SerializedProperty field = owner.Copy();
             SerializedProperty end = owner.GetEndProperty();
+            Type ownerType = owner.propertyType == SerializedPropertyType.ManagedReference ? owner.managedReferenceValue?.GetType() : null;
             bool enterChildren = true;
 
             while (field.NextVisible(enterChildren) && !SerializedProperty.EqualContents(field, end))
@@ -26,9 +28,26 @@ namespace SensorSystem
                 enterChildren = false;
                 if (Array.IndexOf(skippedFields, field.name) < 0)
                 {
-                    parent.Add(new PropertyField(field.Copy()));
+                    var propertyField = new PropertyField(field.Copy());
+                    parent.Add(propertyField);
+                    ApplyShowIf(propertyField, owner, field.name, ownerType);
                 }
             }
+        }
+
+        /// <summary>Hides a field while the bool named by its [ShowIf] attribute is off.</summary>
+        private static void ApplyShowIf(PropertyField propertyField, SerializedProperty owner, string fieldName, Type ownerType)
+        {
+            FieldInfo info = ownerType?.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
+            var attribute = info?.GetCustomAttribute<ShowIfAttribute>();
+            if (attribute == null) return;
+
+            SerializedProperty condition = owner.FindPropertyRelative(attribute.BoolField);
+            if (condition == null || condition.propertyType != SerializedPropertyType.Boolean) return;
+
+            void Update(SerializedProperty changed) => propertyField.style.display = changed.boolValue ? DisplayStyle.Flex : DisplayStyle.None;
+            Update(condition);
+            propertyField.TrackPropertyValue(condition, Update);
         }
 
         public static Label AddSection(VisualElement parent, string title, string hint = null)

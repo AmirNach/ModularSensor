@@ -6,6 +6,7 @@ A drag-and-drop detection sensor for Unity. Put a component on a sensor, mark th
 - **One refresh rate per sensor.** The tree is evaluated once per refresh, never less than every 0.5 seconds.
 - **Short-circuit evaluation.** The tree is walked depth-first and stops as soon as the answer is known, so cheap checks placed first protect expensive ones such as raycasts.
 - **Easy to extend.** A new condition is one class. No enum entry, no registration, no settings code.
+- **Condition visuals.** Switch on "Show visual" on a single condition to draw what it did, such as the raycast line from the sensor to each object.
 - **Live debugging.** In Play mode, the objects a sensor or detector looks at are grouped as passed, failed and injected, in collapsible lists with a filter by name, so hundreds of objects stay manageable. Pick one to see which conditions passed, failed or were never reached, for one sensor or for every sensor of a detector.
 - **Merge-friendly.** The tree lives in a ScriptableObject, not in the scene.
 - **No third-party packages.**
@@ -121,6 +122,34 @@ SensorDebug.Dispatch(new FocusSensorCommand(mySensor));   // open it on a sensor
 Or add **Sensor Debug Commands** to any object and point a UI button, a UnityEvent or an Input System action at its `Toggle`, `Open` or `Close`. `Dispatch` returns `false` and does nothing when no overlay is listening. To add a command of your own, implement `ISensorDebugCommand`.
 
 UI Toolkit needs an `EventSystem` to receive the mouse. If the scene has none, the overlay adds one that matches your input setup (the Input System package or the old Input Manager).
+
+## Seeing what conditions do (debug mode)
+
+Conditions that can draw have a **Show visual** checkbox, in the inspector and in the QA overlay. It is **off by default** and is set per condition, so only the ones you are debugging draw. Each also has its own **Visual color** (a different default for each condition). Objects that failed the condition are drawn in the same color but fainter. While it is off the condition does no extra work. When on, it draws what it did for every object in the last refresh, as gizmos in the Scene view and in the Game view with **Gizmos** on:
+
+| Condition | Draws |
+|---|---|
+| With raycast | a line from the sensor to the object when the way is clear. When blocked: a faint line to what blocked it, a cross where it hit, and a fainter line on to the object |
+| Is angle clamped | the allowed wedge, and a small cross under each object (faint when outside) |
+| In viewport | a cross on each object (faint when outside) |
+| Is moving | a short tick above each object (faint when too slow) |
+| Probability conditions | a cross above each object (faint when the roll failed) |
+| In frustum | the frustum, as a wireframe (this replaces the old sensor option "Show sensor frustum") |
+
+With an object picked in the QA overlay, only that object is drawn. From code: `((WithRaycast)sensor.RuntimeRoot).ShowVisual = true`.
+
+To draw something for your own condition, inherit `VisualCondition` instead of `Condition` (it adds the checkbox) and draw through `VisualsFor(context)` in `Evaluate`. It is null when the checkbox is off, so the check is free:
+
+```csharp
+public override bool Evaluate(IDetectable target, in SensorContext context)
+{
+    bool passed = target.GetCenterPosition().y > MinHeight;
+    VisualsFor(context)?.Line(context.SensorTransform.position, target.GetCenterPosition(), ColorOf(passed));   // VisualColor, fainter if failed
+    return passed;
+}
+```
+
+`Line` and `Cross` take any `Color`. `ColorOf(passed)` gives the condition's own color, fainter when it failed. A condition that draws nothing needs no change.
 
 ## Add your own condition
 

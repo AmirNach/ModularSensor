@@ -19,6 +19,8 @@ namespace SensorSystem
         private readonly Label _summary = new Label();
         private readonly Label _status = new Label();
         private readonly VisualElement _body = new VisualElement();
+        private Toggle _visualToggle;
+        private VisualCondition _visualCondition;
 
         /// <param name="badge">Short tag such as AND. Empty for plain conditions.</param>
         /// <param name="kindClass">Picks the accent color, such as sensor-card--and.</param>
@@ -79,6 +81,21 @@ namespace SensorSystem
             SetExpanded(startExpanded);
         }
 
+        /// <summary>Adds a quick "Visual" switch to the header, so a condition's visual can be turned on and off without expanding it.</summary>
+        public void AddVisualToggle(VisualCondition condition)
+        {
+            _visualCondition = condition;
+            _visualToggle = new Toggle("Visual")
+            {
+                tooltip = "Show visual: draw what this condition did for each object, in the Scene view and in the Game view with Gizmos on.",
+                value = condition.ShowVisual,
+            };
+            _visualToggle.AddToClassList("sensor-visual-toggle");
+            _visualToggle.RegisterValueChangedCallback(change => _visualCondition.ShowVisual = change.newValue);
+            _visualToggle.RegisterCallback<ClickEvent>(evt => evt.StopPropagation());
+            _status.parent.Insert(_status.parent.IndexOf(_status), _visualToggle);
+        }
+
         private bool HasContent => (Parameters != null && Parameters.Paths.Count > 0) || ChildArea.childCount > 0;
 
         public void SetExpanded(bool expanded)
@@ -104,6 +121,7 @@ namespace SensorSystem
         {
             RefreshSummary();
             Parameters?.Refresh();
+            _visualToggle?.SetValueWithoutNotify(_visualCondition.ShowVisual);
         }
 
         private void RefreshSummary()

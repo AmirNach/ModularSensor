@@ -556,3 +556,8 @@
 .sensor-target-header > .sensor-target-extra {
     -unity-text-align: middle-right;
 }
+
+.sensor-visual-toggle {
+    margin: 0 8px 0 4px;
+    flex-shrink: 0;
+}
