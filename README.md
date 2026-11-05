@@ -6,7 +6,7 @@ A drag-and-drop detection sensor for Unity. Put a component on a sensor, mark th
 - **One refresh rate per sensor.** The tree is evaluated once per refresh, never less than every 0.5 seconds.
 - **Short-circuit evaluation.** The tree is walked depth-first and stops as soon as the answer is known, so cheap checks placed first protect expensive ones such as raycasts.
 - **Easy to extend.** A new condition is one class. No enum entry, no registration, no settings code.
-- **Live debugging.** In Play mode, pick a target and see which conditions passed, failed or were never reached.
+- **Live debugging.** In Play mode, the objects a sensor or detector looks at are grouped as passed, failed and injected, in collapsible lists with a filter by name, so hundreds of objects stay manageable. Pick one to see which conditions passed, failed or were never reached, for one sensor or for every sensor of a detector.
 - **Merge-friendly.** The tree lives in a ScriptableObject, not in the scene.
 - **No third-party packages.**
 

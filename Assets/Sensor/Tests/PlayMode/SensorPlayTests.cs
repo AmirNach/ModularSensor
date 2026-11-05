@@ -301,6 +301,25 @@ namespace SensorSystem.Tests
             Assert.AreEqual(plainCalls, watchedCalls);
         }
 
+        [UnityTest]
+        public IEnumerator Detector_ExposesItsSensorsAndWhatItDetects()
+        {
+            GameObject target = CreateTarget(InFront);
+            Sensor sensor = CreateSensor(CreateSettings(new InFrustum()));
+            Detector detector = CreateDetector(sensor, new List<string>());
+
+            CollectionAssert.AreEqual(new[] { sensor }, detector.Sensors);
+
+            yield return new WaitForSeconds(SettleSeconds);
+            List<Detection> detections = detector.GetCurrentDetections();
+            Assert.AreEqual(1, detections.Count);
+            Assert.AreSame(target.GetComponent<DetectableEntity>(), detections[0].DetectionComponent);
+
+            target.transform.position = Behind;
+            yield return new WaitForSeconds(SettleSeconds);
+            Assert.AreEqual(0, detector.GetCurrentDetections().Count);
+        }
+
         private Detector CreateDetector(Sensor sensor, List<string> events)
         {
             var owner = new GameObject("Detector");

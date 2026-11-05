@@ -148,11 +148,71 @@ namespace SensorSystem
         }
     }
 
-    /// <summary>A roomy, dockable view of the selected sensor's or settings asset's tree.</summary>
+    [CustomEditor(typeof(Detector), true)]
+    public class DetectorEditor : Editor
+    {
+        private VisualElement _liveArea;
+        private bool _shownPlaying;
+
+        public override VisualElement CreateInspectorGUI()
+        {
+            var root = new VisualElement();
+            SensorEditorStyles.Apply(root);
+            root.AddToClassList("sensor-inspector");
+
+            SerializedProperty iterator = serializedObject.GetIterator();
+            bool enterChildren = true;
+            while (iterator.NextVisible(enterChildren))
+            {
+                enterChildren = false;
+                if (iterator.name != "m_Script")
+                {
+                    root.Add(new PropertyField(iterator.Copy()));
+                }
+            }
+
+            _liveArea = new VisualElement();
+            _liveArea.AddToClassList("sensor-tree-area");
+            root.Add(_liveArea);
+
+            root.RegisterCallback<AttachToPanelEvent>(_ => EditorApplication.playModeStateChanged += OnPlayModeChanged);
+            root.RegisterCallback<DetachFromPanelEvent>(_ => EditorApplication.playModeStateChanged -= OnPlayModeChanged);
+            RefreshLiveArea();
+            return root;
+        }
+
+        private void OnPlayModeChanged(PlayModeStateChange change)
+        {
+            RefreshLiveArea();
+        }
+
+        private void RefreshLiveArea()
+        {
+            if (_liveArea == null || target == null) return;
+
+            bool isPlaying = EditorApplication.isPlaying;
+            if (isPlaying == _shownPlaying && _liveArea.childCount > 0) return;
+
+            _shownPlaying = isPlaying;
+            _liveArea.Clear();
+
+            if (isPlaying)
+            {
+                _liveArea.Add(new DetectorLiveView((Detector)target));
+            }
+            else
+            {
+                _liveArea.Add(new HelpBox("Enter Play mode to see what this detector detects, grouped as passed, failed and injected.", HelpBoxMessageType.Info));
+            }
+        }
+    }
+
+    /// <summary>A roomy, dockable view of the selected sensor's, detector's or settings asset's tree.</summary>
     public class ConditionTreeWindow : EditorWindow
     {
         [SerializeField] private SensorSettings _settings;
         [SerializeField] private Sensor _sensor;
+        [SerializeField] private Detector _detector;
 
         [MenuItem("Tools/Sensor/Condition Tree")]
         public static void Open()
@@ -165,6 +225,7 @@ namespace SensorSystem
             ConditionTreeWindow window = GetWindow<ConditionTreeWindow>("Condition Tree");
             window._settings = settings;
             window._sensor = null;
+            window._detector = null;
             window.Rebuild();
         }
 
@@ -185,7 +246,7 @@ namespace SensorSystem
 
         private void CreateGUI()
         {
-            if (_settings == null && _sensor == null)
+            if (_settings == null && _sensor == null && _detector == null)
             {
                 ReadSelection();
             }
@@ -207,14 +268,26 @@ namespace SensorSystem
             {
                 _settings = settings;
                 _sensor = null;
+                _detector = null;
                 return true;
             }
 
-            Sensor sensor = Selection.activeGameObject != null ? Selection.activeGameObject.GetComponent<Sensor>() : null;
+            GameObject selected = Selection.activeGameObject;
+            Detector detector = selected != null ? selected.GetComponent<Detector>() : null;
+            if (detector != null)
+            {
+                _detector = detector;
+                _sensor = null;
+                _settings = null;
+                return true;
+            }
+
+            Sensor sensor = selected != null ? selected.GetComponent<Sensor>() : null;
             if (sensor != null)
             {
                 _sensor = sensor;
                 _settings = sensor.Settings;
+                _detector = null;
                 return true;
             }
             return false;
@@ -230,7 +303,18 @@ namespace SensorSystem
             var scroll = new ScrollView();
             root.Add(scroll);
 
-            if (_sensor != null && EditorApplication.isPlaying)
+            if (_detector != null)
+            {
+                if (EditorApplication.isPlaying)
+                {
+                    scroll.Add(new DetectorLiveView(_detector));
+                }
+                else
+                {
+                    scroll.Add(new HelpBox("Enter Play mode to see what this detector detects, grouped as passed, failed and injected.", HelpBoxMessageType.Info));
+                }
+            }
+            else if (_sensor != null && EditorApplication.isPlaying)
             {
                 scroll.Add(new ConditionLiveView(_sensor));
             }

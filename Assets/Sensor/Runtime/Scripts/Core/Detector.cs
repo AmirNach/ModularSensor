@@ -42,6 +42,15 @@ namespace SensorSystem
             }
         }
 
+        /// <summary>The sensors this detector merges.</summary>
+        public IReadOnlyList<Sensor> Sensors => _sensors;
+
+        /// <summary>A copy of what this detector currently detects.</summary>
+        public List<Detection> GetCurrentDetections()
+        {
+            return _allDetectedObjects != null ? new List<Detection>(_allDetectedObjects.Values) : new List<Detection>();
+        }
+
         void IEnabled.SetEnable(bool isEnabled)
         {
             IsOn = isEnabled;

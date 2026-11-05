@@ -284,19 +284,64 @@
 
 /* Live view */
 
-.sensor-live-targets {
+.sensor-target-list {
     margin-bottom: 4px;
 }
 
-.sensor-live-target {
-    -unity-text-align: middle-left;
-    margin: 1px 0;
+.sensor-target-group {
+    margin: 2px 0;
+    padding-left: 4px;
+    border-left-width: 3px;
+    border-left-color: rgb(125, 125, 125);
 }
 
-.sensor-live-target--selected {
-    border-width: 2px;
-    border-color: rgb(62, 142, 208);
+.sensor-target-group--passed {
+    border-left-color: rgb(70, 170, 90);
+}
+
+.sensor-target-group--failed {
+    border-left-color: rgb(215, 90, 90);
+}
+
+.sensor-target-group--injected {
+    border-left-color: rgb(150, 105, 200);
+}
+
+.sensor-target-group--empty {
+    opacity: 0.55;
+}
+
+.sensor-target-items {
+    flex-grow: 0;
+    flex-shrink: 0;
+    margin: 2px 4px 4px 0;
+}
+
+.sensor-target-row {
+    flex-direction: row;
+    flex-grow: 1;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 6px;
+}
+
+.sensor-target-name {
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sensor-target-detail {
+    flex-shrink: 0;
+    margin-left: 8px;
+    opacity: 0.7;
+}
+
+.sensor-detector-summary {
     -unity-font-style: bold;
+    white-space: normal;
+    margin: 2px 3px 6px 3px;
 }
 
 .sensor-live-row {
