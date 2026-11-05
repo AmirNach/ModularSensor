@@ -30,7 +30,7 @@ namespace SensorSystem
             _detector = detector;
             AddToClassList("sensor-live");
 
-            CollapsibleGroup detections = SensorStyles.AddFoldoutSection(this, "Detections", "Everything this detector's sensors look at. Passed means at least one sensor detects it.");
+            CollapsibleGroup detections = SensorStyles.AddFoldoutSection(this, "Targets", "Everything this detector's sensors look at. Passed means at least one sensor detects it. Filter by name to find one.");
             _message.AddToClassList("sensor-hint");
             detections.Add(_message);
             _targets.TargetPicked += target => _picked = target;

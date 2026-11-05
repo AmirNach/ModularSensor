@@ -123,9 +123,33 @@ namespace SensorSystem.Tests
                 Sensor("Near", new[] { target }, new[] { target }, null, 7f),
             }, ids);
 
-            StringAssert.Contains("#42", rows[0].Detail);
-            StringAssert.Contains("3 m", rows[0].Detail);
+            Assert.AreEqual("#42", rows[0].DetectionId);
+            Assert.AreEqual("t", rows[0].Identifier);
+            Assert.AreEqual("3 m", rows[0].DistanceText);
             Assert.AreEqual(3f, rows[0].Distance, 0.001f);
+        }
+
+        [Test]
+        public void Distance_IsTheOneMeasuredAtTheSensorsLastRefresh_NotTheCurrentPosition()
+        {
+            Stub target = Target("t", 10f);
+            var measured = new Dictionary<IDetectable, float> { { target, 4f } };
+            var sensor = new SensorSnapshot("A", Vector3.zero, new HashSet<IDetectable> { target }, new HashSet<IDetectable>(), new HashSet<IDetectable> { target }, measured);
+
+            target.Position = new Vector3(50f, 0f, 0f); // moves after the refresh
+
+            List<TargetRow> rows = TargetRows.ForDetector(new[] { sensor }, NoIds);
+
+            Assert.AreEqual(4f, rows[0].Distance, 0.001f, "The distance must not change until the sensor refreshes again.");
+        }
+
+        [Test]
+        public void LongIdentifiers_AreKeptWhole()
+        {
+            Stub target = Target("1234:5678:9012:3456");
+            List<TargetRow> rows = TargetRows.ForDetector(new[] { Sensor("A", new[] { target }, new[] { target }) }, NoIds);
+
+            Assert.AreEqual("1234:5678:9012:3456", rows[0].Identifier);
         }
 
         [Test]

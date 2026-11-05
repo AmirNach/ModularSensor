@@ -39,15 +39,15 @@ namespace SensorSystem
 
         public override void DrawGizmos(Transform sensorTransform, Camera camera)
         {
+            // Drawn through the mask, so the lines stay out from behind the QA overlay in the Game view.
             if (camera != null)
             {
-                Gizmos.matrix = camera.transform.localToWorldMatrix;
-                Gizmos.DrawFrustum(Vector3.zero, camera.fieldOfView, camera.farClipPlane, camera.nearClipPlane, camera.aspect);
+                Transform cameraTransform = camera.transform;
+                OverlayGizmoMask.DrawFrustum(cameraTransform.position, cameraTransform.rotation, camera.fieldOfView, camera.farClipPlane, camera.nearClipPlane, camera.aspect);
             }
             else
             {
-                Gizmos.matrix = Matrix4x4.TRS(sensorTransform.position, sensorTransform.rotation, Vector3.one);
-                Gizmos.DrawFrustum(Vector3.zero, VerticalFov, MaxDistance, MinDistance, FrustumUtil.GetAspect(HorizontalFov, VerticalFov));
+                OverlayGizmoMask.DrawFrustum(sensorTransform.position, sensorTransform.rotation, VerticalFov, MaxDistance, MinDistance, FrustumUtil.GetAspect(HorizontalFov, VerticalFov));
             }
         }
     }

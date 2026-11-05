@@ -39,6 +39,9 @@ namespace SensorSystem
             public CollapsibleGroup Foldout;
             public ListView List;
             public Label Message;
+            public VisualElement Header;
+            public Label HeaderExtra;
+            public bool ViewportHooked;
             public string FoldKey;
             public readonly List<TargetRow> Items = new List<TargetRow>();
         }
@@ -168,9 +171,53 @@ namespace SensorSystem
             group.List.bindItem = (element, i) => BindRow(group, element, i);
             group.List.selectionChanged += selected => OnSelectionChanged(group, selected);
 
+            group.Header = CreateHeader(group);
+            // The scrollbar of a long list takes room from the rows, so the titles make room for it too.
+            group.List.RegisterCallback<GeometryChangedEvent>(_ => UpdateHeaderInset(group));
+
             group.Foldout.Add(group.Message);
+            group.Foldout.Add(group.Header);
             group.Foldout.Add(group.List);
             return group;
+        }
+
+        private static VisualElement CreateHeader(Group group)
+        {
+            var header = new VisualElement();
+            header.AddToClassList("sensor-target-header");
+            header.pickingMode = PickingMode.Ignore;
+
+            AddTitle(header, "Name", "sensor-target-name", "Name of the object");
+            group.HeaderExtra = AddTitle(header, "Detected by", "sensor-target-extra", "The sensors that detect it");
+            AddTitle(header, "ID", "sensor-target-id", "Detection ID given by the sensor or detector");
+            AddTitle(header, "Identifier", "sensor-target-identifier", "The object's own identifier");
+            AddTitle(header, "Distance", "sensor-target-detail", "Distance at the sensor's last refresh");
+            return header;
+        }
+
+        private static Label AddTitle(VisualElement header, string text, string className, string tooltip)
+        {
+            var label = new Label(text) { tooltip = tooltip, pickingMode = PickingMode.Ignore };
+            label.AddToClassList(className);
+            header.Add(label);
+            return label;
+        }
+
+        private void UpdateHeaderInset(Group group)
+        {
+            ScrollView scroll = group.List.Q<ScrollView>();
+            if (scroll == null) return;
+
+            // Follow the viewport too, since the scrollbar appears after the list itself has settled.
+            if (!group.ViewportHooked)
+            {
+                group.ViewportHooked = true;
+                scroll.contentViewport.RegisterCallback<GeometryChangedEvent>(_ => UpdateHeaderInset(group));
+            }
+
+            float scrollbar = scroll.verticalScroller.resolvedStyle.display != DisplayStyle.None ? scroll.verticalScroller.worldBound.width : 0f;
+            if (float.IsNaN(scrollbar)) scrollbar = 0f;
+            group.Header.style.marginRight = 4f + scrollbar;
         }
 
         private static VisualElement MakeRow()
@@ -182,10 +229,27 @@ namespace SensorSystem
             name.AddToClassList("sensor-target-name");
             row.Add(name);
 
-            var detail = new Label { name = "target-detail" };
-            detail.AddToClassList("sensor-target-detail");
-            row.Add(detail);
+            // Fixed-width columns, so the numbers line up from row to row. Only the name gives way when space is tight.
+            AddColumn(row, "target-extra", "sensor-target-extra");
+            AddColumn(row, "target-detection-id", "sensor-target-id");
+            AddColumn(row, "target-identifier", "sensor-target-identifier");
+            AddColumn(row, "target-distance", "sensor-target-detail");
             return row;
+        }
+
+        private static void AddColumn(VisualElement row, string elementName, string className)
+        {
+            var label = new Label { name = elementName };
+            label.AddToClassList(className);
+            row.Add(label);
+        }
+
+        private static void SetColumn(VisualElement row, string elementName, string text, string tooltip)
+        {
+            var label = row.Q<Label>(elementName);
+            label.text = text;
+            label.tooltip = tooltip;
+            label.style.display = string.IsNullOrEmpty(text) ? DisplayStyle.None : DisplayStyle.Flex;
         }
 
         private static void BindRow(Group group, VisualElement element, int index)
@@ -196,7 +260,10 @@ namespace SensorSystem
             var name = element.Q<Label>("target-name");
             name.text = row.Name;
             name.tooltip = row.Name;
-            element.Q<Label>("target-detail").text = row.Detail;
+            SetColumn(element, "target-extra", row.Detail, "Detected by");
+            SetColumn(element, "target-detection-id", row.DetectionId, "Detection ID");
+            SetColumn(element, "target-identifier", row.Identifier, "Identifier: " + row.Identifier);
+            SetColumn(element, "target-distance", row.DistanceText, "Distance at the sensor's last refresh");
         }
 
         private void Apply()
@@ -219,6 +286,8 @@ namespace SensorSystem
                 group.Message.text = total == 0 ? "None" : "No matches";
                 group.Message.style.display = hasRows ? DisplayStyle.None : DisplayStyle.Flex;
                 group.List.style.display = hasRows ? DisplayStyle.Flex : DisplayStyle.None;
+                group.Header.style.display = hasRows ? DisplayStyle.Flex : DisplayStyle.None;
+                group.HeaderExtra.style.display = group.Items.Any(item => !string.IsNullOrEmpty(item.Detail)) ? DisplayStyle.Flex : DisplayStyle.None;
                 group.List.style.height = Mathf.Min(group.Items.Count, MaxVisibleRows) * RowHeight + ListBorder;
 
                 // Only a list taller than its window needs a scrollbar.

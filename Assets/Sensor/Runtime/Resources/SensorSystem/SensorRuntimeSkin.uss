@@ -144,7 +144,7 @@
     top: 46px;
     right: 8px;
     bottom: 8px;
-    width: 520px;
+    width: 720px;
     padding: 8px 10px;
     background-color: rgb(38, 38, 38);
     border-width: 1px;

@@ -121,6 +121,25 @@ namespace SensorSystem.Tests
         }
 
         [UnityTest]
+        public IEnumerator Distances_AreMeasuredAtTheRefresh_AndStayUntilTheNextOne()
+        {
+            GameObject target = CreateTarget(InFront);
+            Sensor sensor = CreateSensor(CreateSettings(new InFrustum()));
+            IDetectable detectable = target.GetComponent<IDetectable>();
+
+            yield return new WaitForSeconds(SettleSeconds);
+            Assert.IsTrue(sensor.LastDistances.TryGetValue(detectable, out float measured), "The refresh should record a distance for the target.");
+
+            // Moving it between refreshes must not change the recorded distance.
+            target.transform.position += Vector3.forward * 7f;
+            Assert.AreEqual(measured, sensor.LastDistances[detectable], 0.0001f);
+            Assert.AreEqual(measured, TargetRows.ForSensor(sensor).Find(row => ReferenceEquals(row.Target, detectable)).Distance, 0.0001f, "The list shows the recorded distance.");
+
+            yield return new WaitForSeconds(SettleSeconds);
+            Assert.AreEqual(measured + 7f, sensor.LastDistances[detectable], 0.5f, "The next refresh measures again.");
+        }
+
+        [UnityTest]
         public IEnumerator Sensor_IgnoresItself()
         {
             var settings = CreateSettings(new InAbsoluteRangesWithProbabilities

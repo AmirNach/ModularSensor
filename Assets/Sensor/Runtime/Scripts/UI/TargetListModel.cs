@@ -18,15 +18,29 @@ namespace SensorSystem
         public readonly string Name;
         public readonly TargetState State;
         public readonly float Distance;
+        /// <summary>The detection ID the sensor or detector gave it, like "#28". Empty when it has none.</summary>
+        public readonly string DetectionId;
+        /// <summary>The object's own identifier from GetIdentifier. It can be as long as xxxx:xxxx:xxxx:xxxx.</summary>
+        public readonly string Identifier;
+        public readonly string DistanceText;
+        /// <summary>Anything else worth saying, such as which sensors detect it. Empty when there is nothing.</summary>
         public readonly string Detail;
 
         public TargetRow(IDetectable target, string name, TargetState state, float distance, string detail)
+            : this(target, name, state, distance, string.Empty, target?.GetIdentifier() ?? string.Empty, detail)
+        {
+        }
+
+        public TargetRow(IDetectable target, string name, TargetState state, float distance, string detectionId, string identifier, string detail)
         {
             Target = target;
             Name = name;
             State = state;
             Distance = distance;
-            Detail = detail;
+            DetectionId = detectionId ?? string.Empty;
+            Identifier = identifier ?? string.Empty;
+            DistanceText = $"{distance:0.#} m";
+            Detail = detail ?? string.Empty;
         }
     }
 

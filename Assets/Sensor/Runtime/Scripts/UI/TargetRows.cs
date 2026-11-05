@@ -13,20 +13,34 @@ namespace SensorSystem
         public IReadOnlyCollection<IDetectable> Injected { get; }
         public IReadOnlyCollection<IDetectable> Detected { get; }
 
-        public SensorSnapshot(string name, Vector3 position, IReadOnlyCollection<IDetectable> candidates, IReadOnlyCollection<IDetectable> injected, IReadOnlyCollection<IDetectable> detected)
+        /// <summary>Distances measured at the sensor's last refresh. Null means measure from the current positions.</summary>
+        public IReadOnlyDictionary<IDetectable, float> Distances { get; }
+
+        public SensorSnapshot(string name, Vector3 position, IReadOnlyCollection<IDetectable> candidates, IReadOnlyCollection<IDetectable> injected, IReadOnlyCollection<IDetectable> detected, IReadOnlyDictionary<IDetectable, float> distances = null)
         {
             Name = name;
             Position = position;
             Candidates = candidates;
             Injected = injected;
             Detected = detected;
+            Distances = distances;
         }
 
         public static SensorSnapshot Of(Sensor sensor)
         {
             // The type only helps when it was set, and "NA" is just noise.
             string name = sensor.Type == SensorType.NA ? sensor.name : $"{sensor.name} ({sensor.Type})";
-            return new SensorSnapshot(name, sensor.transform.position, sensor.LastCandidates, sensor.LastInjected, sensor.GetAllDetectedObjects());
+            return new SensorSnapshot(name, sensor.transform.position, sensor.LastCandidates, sensor.LastInjected, sensor.GetAllDetectedObjects(), sensor.LastDistances);
+        }
+
+        /// <summary>How far the target was at the sensor's last refresh, so it only changes when the sensor refreshes.</summary>
+        public float DistanceTo(IDetectable target)
+        {
+            if (Distances != null && Distances.TryGetValue(target, out float distance))
+            {
+                return distance;
+            }
+            return Vector3.Distance(Position, target.GetCenterPosition());
         }
     }
 
@@ -38,7 +52,13 @@ namespace SensorSystem
         {
             var rows = new List<TargetRow>();
             var seen = new HashSet<IDetectable>();
-            Vector3 position = sensor.transform.position;
+            SensorSnapshot snapshot = SensorSnapshot.Of(sensor);
+
+            var ids = new Dictionary<IDetectable, int>();
+            foreach (Detection detection in sensor.GetCurrentDetections())
+            {
+                ids[detection.DetectionComponent] = detection.ID;
+            }
 
             foreach (IDetectable target in sensor.LastCandidates.Concat(sensor.LastInjected))
             {
@@ -47,8 +67,7 @@ namespace SensorSystem
                 TargetState state = sensor.LastInjected.Contains(target)
                     ? TargetState.Injected
                     : sensor.GetAllDetectedObjects().Contains(target) ? TargetState.Passed : TargetState.Failed;
-                float distance = Vector3.Distance(position, target.GetCenterPosition());
-                rows.Add(new TargetRow(target, TargetListModel.GetName(target), state, distance, $"{distance:0.#} m"));
+                rows.Add(new TargetRow(target, TargetListModel.GetName(target), state, snapshot.DistanceTo(target), FormatId(ids, target), target.GetIdentifier(), string.Empty));
             }
             return rows;
         }
@@ -99,7 +118,7 @@ namespace SensorSystem
                 bool isInjected = sensor.Injected.Contains(target);
                 if (!isInjected && !sensor.Candidates.Contains(target)) continue;
 
-                nearest = Mathf.Min(nearest, Vector3.Distance(sensor.Position, target.GetCenterPosition()));
+                nearest = Mathf.Min(nearest, sensor.DistanceTo(target));
                 if (sensor.Detected.Contains(target))
                 {
                     detectedBy.Add(sensor.Name);
@@ -109,17 +128,12 @@ namespace SensorSystem
 
             TargetState state = detectedBy.Count == 0 ? TargetState.Failed : allInjected ? TargetState.Injected : TargetState.Passed;
 
-            var parts = new List<string>();
-            if (detectionIds.TryGetValue(target, out int id))
-            {
-                parts.Add($"#{id}");
-            }
-            parts.Add($"{nearest:0.#} m");
-            if (detectedBy.Count > 0)
-            {
-                parts.Add(string.Join(", ", detectedBy));
-            }
-            return new TargetRow(target, TargetListModel.GetName(target), state, nearest, string.Join("  ", parts));
+            return new TargetRow(target, TargetListModel.GetName(target), state, nearest, FormatId(detectionIds, target), target.GetIdentifier(), string.Join(", ", detectedBy));
+        }
+
+        private static string FormatId(IReadOnlyDictionary<IDetectable, int> ids, IDetectable target)
+        {
+            return ids.TryGetValue(target, out int id) ? $"#{id}" : string.Empty;
         }
     }
 }

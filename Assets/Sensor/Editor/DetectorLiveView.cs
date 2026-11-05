@@ -31,7 +31,7 @@ namespace SensorSystem
             SensorEditorStyles.Apply(this);
             AddToClassList("sensor-live");
 
-            SensorEditorStyles.AddSection(this, "Detections", "Everything this detector's sensors look at. Passed means at least one sensor detects it.");
+            SensorEditorStyles.AddSection(this, "Targets", "Everything this detector's sensors look at. Passed means at least one sensor detects it. Filter by name to find one.");
             _message.AddToClassList("sensor-hint");
             Add(_message);
             _targets.TargetPicked += target => _picked = target;

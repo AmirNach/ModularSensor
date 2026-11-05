@@ -68,6 +68,7 @@ namespace SensorSystem
         private void OnDisable()
         {
             SensorDebug.Unregister(this);
+            OverlayGizmoMask.Withdraw(this);
             _panel?.SetActive(false);
             _panel = null;
             _toggle = null;
@@ -162,6 +163,26 @@ namespace SensorSystem
                 _panel.Focus(_pendingFocus);
                 _pendingFocus = null;
             }
+        }
+
+        private void LateUpdate()
+        {
+            if (_document == null || _toggle == null || _panel == null) return;
+
+            VisualElement root = _document.rootVisualElement;
+            if (root == null || root.layout.width <= 0f || root.layout.height <= 0f) return;
+
+            // The panel's units are not pixels, so scale them to the screen. Unity's screen y starts at the bottom.
+            float screenWidth = Target != null ? Target.width : Screen.width;
+            float screenHeight = Target != null ? Target.height : Screen.height;
+            float scaleX = screenWidth / root.layout.width;
+            float scaleY = screenHeight / root.layout.height;
+
+            Rect ToScreen(Rect r) => new Rect(r.xMin * scaleX, screenHeight - r.yMax * scaleY, r.width * scaleX, r.height * scaleY);
+
+            OverlayGizmoMask.Publish(this, _isOpen
+                ? new[] { ToScreen(_toggle.worldBound), ToScreen(_panel.worldBound) }
+                : new[] { ToScreen(_toggle.worldBound) });
         }
 
         private void ApplyOpenState()

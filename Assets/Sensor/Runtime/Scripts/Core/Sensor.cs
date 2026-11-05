@@ -58,6 +58,12 @@ namespace SensorSystem
         public IReadOnlyCollection<IDetectable> LastInjected => _injected;
 
         /// <summary>
+        /// How far each object in LastCandidates and LastInjected was from this sensor when the last refresh ran.
+        /// It changes only with the sensor's refresh rate, like the detections it sits next to. Treat it as read-only.
+        /// </summary>
+        public IReadOnlyDictionary<IDetectable, float> LastDistances => _distances;
+
+        /// <summary>
         /// When set, the next refreshes record every node's result for this target in DebugResults.
         /// Nothing is evaluated extra, so debugging can't change rolls or attempts.
         /// </summary>
@@ -72,6 +78,7 @@ namespace SensorSystem
         private readonly HashSet<IDetectable> _candidates = new HashSet<IDetectable>();
         private readonly HashSet<IDetectable> _injected = new HashSet<IDetectable>();
         private readonly HashSet<IDetectable> _allDetectedObjects = new HashSet<IDetectable>();
+        private readonly Dictionary<IDetectable, float> _distances = new Dictionary<IDetectable, float>();
         private readonly List<IDetectable> _injectorOutput = new List<IDetectable>();
         private readonly Dictionary<IDetectable, EvaluationTrace> _changeTraces = new Dictionary<IDetectable, EvaluationTrace>();
         private readonly Dictionary<Condition, bool> _debugResults = new Dictionary<Condition, bool>();
@@ -208,6 +215,7 @@ namespace SensorSystem
             _allDetectedObjects.Clear();
             _candidates.Clear();
             _injected.Clear();
+            _distances.Clear();
             _debugResults.Clear();
 
             foreach (DetectionInjector injector in _runtimeInjectors)
@@ -315,11 +323,27 @@ namespace SensorSystem
             _trace.RecordNodes = false;
 
             AddInjectedDetections(context);
+            RecordDistances();
 
             _gained.Clear();
             _lost.Clear();
             _detectionsCollection.UpdateDetectionsCollection(this, _allDetectedObjects, _changeTraces, _gained, _lost);
             NotifyConditions();
+        }
+
+        private void RecordDistances()
+        {
+            _distances.Clear();
+            Vector3 position = transform.position;
+
+            foreach (IDetectable candidate in _candidates)
+            {
+                _distances[candidate] = Vector3.Distance(position, candidate.GetCenterPosition());
+            }
+            foreach (IDetectable detection in _injected)
+            {
+                _distances[detection] = Vector3.Distance(position, detection.GetCenterPosition());
+            }
         }
 
         private void CollectCandidates()
