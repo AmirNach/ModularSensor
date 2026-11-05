@@ -63,6 +63,24 @@ detector.OnLostDetectionFromDetectorEvent += detection =>
 
 A `Detection` also lists which leaf conditions the target passed (`AllPassedConditions`) and failed (`AllFailedConditions`). Conditions skipped by short-circuiting appear in neither list.
 
+### Targets that disappear
+
+A target can be destroyed, or become invalid, while it is detected. The lost event still fires, and the `Detection` it carries is complete:
+
+```csharp
+sensor.OnLostDetectionEvent += detection =>
+{
+    // detection.DetectionComponent may be destroyed by now. detection.Snapshot never is.
+    DetectableSnapshot target = detection.Snapshot;
+    Debug.Log($"Lost {target.Name} ({target.Identifier}) at {target.Position} because {detection.LostReason}");
+};
+```
+
+- `Snapshot` is a copy of what the target looked like at the sensor's last refresh: identifier, name, type, entity type, position, speed and bounds. It is an `IDetectable` that never throws.
+- `LostReason` says why: `ConditionsFailed`, `TargetDestroyed` (gone, invalid, or no longer found), or `SensorDisabled`.
+- Targets are tracked by `GetIdentifier()`, not by object. If your program rebuilds an `IDetectable` for the same thing, it stays the same detection with the same detection ID, as long as the identifier is the same. Identifiers must be unique and should be a cached string, since they are read on every refresh. An object without one is ignored, with one warning.
+- If your `IDetectable` wraps something that can go away, override `bool IsValid` to return false when it does. The sensor then never calls the object again.
+
 ## Built-in conditions
 
 | Group | Condition | Passes when |

@@ -296,19 +296,19 @@ namespace SensorSystem.Tests
                 int lostEvents = 0;
                 var collection = new DetectionsCollection(settings, _ => { }, _ => lostEvents++);
                 var target = new StubTarget();
-                var fromFirst = new Detection(target, 1, first, new HashSet<string>(), new HashSet<string>(), 0f);
-                var fromSecond = new Detection(target, 1, second, new HashSet<string>(), new HashSet<string>(), 0f);
+                var fromFirst = new Detection(target, "stub", 1, first, new HashSet<string>(), new HashSet<string>(), 0f);
+                var fromSecond = new Detection(target, "stub", 1, second, new HashSet<string>(), new HashSet<string>(), 0f);
 
                 collection.AddFromSensor(fromFirst, first);
                 collection.AddFromSensor(fromSecond, second);
 
                 collection.RemoveFromSensor(fromFirst, first);
                 Assert.AreEqual(0, lostEvents);
-                Assert.IsTrue(collection.ContainsKey(target));
+                Assert.IsTrue(collection.ContainsKey("stub"));
 
                 collection.RemoveFromSensor(fromSecond, second);
                 Assert.AreEqual(1, lostEvents);
-                Assert.IsFalse(collection.ContainsKey(target));
+                Assert.IsFalse(collection.ContainsKey("stub"));
             }
             finally
             {

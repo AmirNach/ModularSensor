@@ -25,11 +25,11 @@ namespace SensorSystem
         [FormerlySerializedAs("MaxDetectionAttemptsPerEntity")]
         [Min(0)] public int MaxDetectionAttempts;
 
-        [NonSerialized] private HashSet<IDetectable> _passedRoll;
-        [NonSerialized] private Dictionary<IDetectable, int> _attempts;
+        [NonSerialized] private HashSet<string> _passedRoll;
+        [NonSerialized] private Dictionary<string, int> _attempts;
 
-        private HashSet<IDetectable> PassedRoll => _passedRoll ??= new HashSet<IDetectable>();
-        private Dictionary<IDetectable, int> Attempts => _attempts ??= new Dictionary<IDetectable, int>();
+        private HashSet<string> PassedRoll => _passedRoll ??= new HashSet<string>();
+        private Dictionary<string, int> Attempts => _attempts ??= new Dictionary<string, int>();
 
         /// <summary>The chance, 0 to 100, that this target is detected right now.</summary>
         protected abstract float GetProbability(IDetectable target, in SensorContext context);
@@ -38,40 +38,43 @@ namespace SensorSystem
 
         public override bool Evaluate(IDetectable target, in SensorContext context)
         {
+            // Remembered by ID, so a target that comes back as a new instance keeps its state.
+            string id = target.GetIdentifier();
             float probability = GetProbability(target, in context);
             if (probability <= 0f)
             {
-                PassedRoll.Remove(target);
+                PassedRoll.Remove(id);
                 return false;
             }
 
-            if (StopRollingOnceDetected && PassedRoll.Contains(target)) return true;
+            if (StopRollingOnceDetected && PassedRoll.Contains(id)) return true;
 
             if (HasLimitedDetectionAttempts)
             {
-                Attempts.TryGetValue(target, out int attempts);
+                Attempts.TryGetValue(id, out int attempts);
                 if (attempts >= MaxDetectionAttempts)
                 {
-                    PassedRoll.Remove(target);
+                    PassedRoll.Remove(id);
                     return false;
                 }
-                Attempts[target] = attempts + 1;
+                Attempts[id] = attempts + 1;
             }
 
             if (DistanceProbability.Roll(probability))
             {
-                PassedRoll.Add(target);
+                PassedRoll.Add(id);
                 return true;
             }
 
-            PassedRoll.Remove(target);
+            PassedRoll.Remove(id);
             return false;
         }
 
         public override void OnTargetLost(IDetectable target)
         {
-            PassedRoll.Remove(target);
-            Attempts.Remove(target);
+            string id = target.GetIdentifier();
+            PassedRoll.Remove(id);
+            Attempts.Remove(id);
         }
     }
 }

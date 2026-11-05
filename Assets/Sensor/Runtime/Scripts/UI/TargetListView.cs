@@ -306,9 +306,16 @@ namespace SensorSystem
             }
         }
 
+        /// <summary>The same object, even when it is a different instance of it. Targets are matched by ID.</summary>
+        private static bool IsSame(IDetectable a, IDetectable b)
+        {
+            if (ReferenceEquals(a, b)) return true;
+            return a.TryGetId(out string idA) && b.TryGetId(out string idB) && idA == idB;
+        }
+
         private void RestoreSelection(Group group)
         {
-            int index = SelectedTarget == null ? -1 : group.Items.FindIndex(row => ReferenceEquals(row.Target, SelectedTarget));
+            int index = SelectedTarget == null ? -1 : group.Items.FindIndex(row => IsSame(row.Target, SelectedTarget));
             group.List.SetSelectionWithoutNotify(index >= 0 ? new[] { index } : Array.Empty<int>());
         }
 

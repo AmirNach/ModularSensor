@@ -19,7 +19,7 @@ namespace SensorSystem.Tests
             public float GetVelocity() => 0f;
         }
 
-        private static readonly IReadOnlyDictionary<IDetectable, int> NoIds = new Dictionary<IDetectable, int>();
+        private static readonly IReadOnlyDictionary<string, int> NoIds = new Dictionary<string, int>();
 
         private static Stub Target(string id, float x = 10f) => new Stub { Id = id, Position = new Vector3(x, 0f, 0f) };
 
@@ -115,7 +115,7 @@ namespace SensorSystem.Tests
         public void RowDetail_ShowsTheDetectionIdAndTheNearestSensorDistance()
         {
             Stub target = Target("t", 10f);
-            var ids = new Dictionary<IDetectable, int> { { target, 42 } };
+            var ids = new Dictionary<string, int> { { "t", 42 } };
 
             List<TargetRow> rows = TargetRows.ForDetector(new[]
             {

@@ -82,12 +82,12 @@ namespace SensorSystem
         private void RefreshStatuses()
         {
             IDetectable target = _sensor.DebugTarget;
-            if (target != null && target.IsDestroyed())
+            if (target != null && !target.IsAlive())
             {
                 _sensor.DebugTarget = target = null;
             }
 
-            bool isInjected = target != null && _sensor.LastInjected.Contains(target);
+            bool isInjected = target != null && _sensor.WasInjected(target);
             string name = target == null ? null : TargetListModel.GetName(target);
             _note.text = target == null
                 ? "No object picked."

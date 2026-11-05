@@ -55,14 +55,14 @@ namespace SensorSystem
             EnsureSections(sensors);
 
             List<SensorSnapshot> snapshots = sensors.Select(SensorSnapshot.Of).ToList();
-            var ids = new Dictionary<IDetectable, int>();
+            var ids = new Dictionary<string, int>();
             foreach (Detection detection in _detector.GetCurrentDetections())
             {
-                ids[detection.DetectionComponent] = detection.ID;
+                ids[detection.TargetId] = detection.ID;
             }
 
             List<TargetRow> rows = TargetRows.ForDetector(snapshots, ids);
-            if (_picked != null && _picked.IsDestroyed())
+            if (_picked != null && !_picked.IsAlive())
             {
                 _picked = null;
             }
@@ -112,7 +112,7 @@ namespace SensorSystem
             }
         }
 
-        private void RefreshDetails(List<SensorSnapshot> snapshots, Dictionary<IDetectable, int> ids)
+        private void RefreshDetails(List<SensorSnapshot> snapshots, Dictionary<string, int> ids)
         {
             if (_picked == null)
             {
@@ -121,7 +121,7 @@ namespace SensorSystem
             else
             {
                 List<string> detectedBy = TargetRows.GetDetectingSensors(_picked, snapshots);
-                string idText = ids.TryGetValue(_picked, out int id) ? $" (detection #{id})" : string.Empty;
+                string idText = _picked.TryGetId(out string pickedId) && ids.TryGetValue(pickedId, out int id) ? $" (detection #{id})" : string.Empty;
                 _summary.text = TargetListModel.GetName(_picked)
                     + (detectedBy.Count > 0 ? $" is detected by {string.Join(", ", detectedBy)}" : " is not detected by any sensor")
                     + idText;

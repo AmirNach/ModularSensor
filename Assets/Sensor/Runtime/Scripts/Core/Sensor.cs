@@ -74,13 +74,18 @@ namespace SensorSystem
 
         protected virtual Camera ContextCamera => null;
 
-        private readonly HashSet<IDetectable> _detectedObjectsBlackList = new HashSet<IDetectable>();
+        private readonly HashSet<string> _detectedObjectsBlackList = new HashSet<string>();
         private readonly HashSet<IDetectable> _candidates = new HashSet<IDetectable>();
         private readonly HashSet<IDetectable> _injected = new HashSet<IDetectable>();
+        private readonly HashSet<string> _injectedIds = new HashSet<string>();
         private readonly HashSet<IDetectable> _allDetectedObjects = new HashSet<IDetectable>();
         private readonly Dictionary<IDetectable, float> _distances = new Dictionary<IDetectable, float>();
         private readonly List<IDetectable> _injectorOutput = new List<IDetectable>();
-        private readonly Dictionary<IDetectable, EvaluationTrace> _changeTraces = new Dictionary<IDetectable, EvaluationTrace>();
+        private readonly Dictionary<string, EvaluationTrace> _changeTraces = new Dictionary<string, EvaluationTrace>();
+        // Targets are tracked by ID. These hold the live instance of each ID for the refresh that is running.
+        private readonly Dictionary<IDetectable, string> _ids = new Dictionary<IDetectable, string>();
+        private readonly Dictionary<string, IDetectable> _seenById = new Dictionary<string, IDetectable>();
+        private readonly Dictionary<string, IDetectable> _detectedById = new Dictionary<string, IDetectable>();
         private readonly Dictionary<Condition, bool> _debugResults = new Dictionary<Condition, bool>();
         private readonly List<IDetectable> _gained = new List<IDetectable>();
         private readonly List<IDetectable> _lost = new List<IDetectable>();
@@ -93,6 +98,8 @@ namespace SensorSystem
         private Coroutine _refreshLoop;
         private bool _hasStarted;
         private bool _isOn;
+        private bool _warnedAboutMissingId;
+        private bool _warnedAboutDuplicateId;
 
         protected virtual bool IsOn
         {
@@ -215,7 +222,11 @@ namespace SensorSystem
             _allDetectedObjects.Clear();
             _candidates.Clear();
             _injected.Clear();
+            _injectedIds.Clear();
             _distances.Clear();
+            _ids.Clear();
+            _seenById.Clear();
+            _detectedById.Clear();
             _debugResults.Clear();
 
             foreach (DetectionInjector injector in _runtimeInjectors)
@@ -230,20 +241,33 @@ namespace SensorSystem
             return _detectionsCollection != null ? new List<Detection>(_detectionsCollection.Values) : new List<Detection>();
         }
 
+        /// <summary>True when the object was added by an injector in the last refresh. Matched by ID.</summary>
+        public bool WasInjected(IDetectable target)
+        {
+            return target.TryGetId(out string id) && _injectedIds.Contains(id);
+        }
+
         /// <summary>Everything currently detected. Treat it as read-only.</summary>
         public HashSet<IDetectable> GetAllDetectedObjects()
         {
             return _allDetectedObjects;
         }
 
+        /// <summary>The sensor will ignore this object from now on. It is remembered by ID.</summary>
         public void AddDetectionToBlackList(IDetectable detection)
         {
-            _detectedObjectsBlackList.Add(detection);
+            if (detection.TryGetId(out string id))
+            {
+                _detectedObjectsBlackList.Add(id);
+            }
         }
 
         public void RemoveDetectionFromBlackList(IDetectable detection)
         {
-            _detectedObjectsBlackList.Remove(detection);
+            if (detection.TryGetId(out string id))
+            {
+                _detectedObjectsBlackList.Remove(id);
+            }
         }
 
         /// <summary>Override to supply your own IAllObjectsCollection.</summary>
@@ -294,23 +318,42 @@ namespace SensorSystem
 
             CollectCandidates();
             _allDetectedObjects.Clear();
+            _detectedById.Clear();
             _changeTraces.Clear();
             _debugResults.Clear();
 
+            string debugTargetId = null;
+            DebugTarget?.TryGetId(out debugTargetId);
+
             foreach (IDetectable candidate in _candidates)
             {
-                bool isDebugTarget = ReferenceEquals(candidate, DebugTarget);
+                string id = _ids[candidate];
+                bool isDebugTarget = id == debugTargetId;
                 _trace.Clear();
                 _trace.RecordNodes = isDebugTarget;
 
-                bool passed = Condition.Run(RuntimeRoot, candidate, context);
+                bool passed = false;
+                try
+                {
+                    passed = Condition.Run(RuntimeRoot, candidate, context);
+                }
+                catch (Exception e)
+                {
+                    // A target that vanished while it was being evaluated just fails. Anything else is a real bug in a condition.
+                    if (candidate.IsAlive())
+                    {
+                        Debug.LogException(e, this);
+                    }
+                }
+
                 if (passed)
                 {
                     _allDetectedObjects.Add(candidate);
+                    _detectedById[id] = candidate;
                 }
-                if (passed != _detectionsCollection.ContainsKey(candidate))
+                if (passed != _detectionsCollection.ContainsKey(id))
                 {
-                    _changeTraces[candidate] = _trace.Snapshot();
+                    _changeTraces[id] = _trace.Snapshot();
                 }
                 if (isDebugTarget)
                 {
@@ -327,7 +370,7 @@ namespace SensorSystem
 
             _gained.Clear();
             _lost.Clear();
-            _detectionsCollection.UpdateDetectionsCollection(this, _allDetectedObjects, _changeTraces, _gained, _lost);
+            _detectionsCollection.UpdateDetectionsCollection(this, _detectedById, _seenById, _changeTraces, _gained, _lost);
             NotifyConditions();
         }
 
@@ -349,18 +392,57 @@ namespace SensorSystem
         private void CollectCandidates()
         {
             _candidates.Clear();
+            _ids.Clear();
+            _seenById.Clear();
 
-            if (_allObjectsCollection != null)
+            if (_allObjectsCollection == null) return;
+
+            foreach (IDetectable candidate in _allObjectsCollection.AllObjects)
             {
-                _candidates.UnionWith(_allObjectsCollection.AllObjects);
+                if (TryRegister(candidate, out _))
+                {
+                    _candidates.Add(candidate);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Records a live target under its ID for this refresh. Gone targets, targets without an ID, ignored ones
+        /// and a second target with an ID that is already taken are skipped.
+        /// </summary>
+        private bool TryRegister(IDetectable target, out string id)
+        {
+            if (!target.TryGetId(out id))
+            {
+                if (target.IsAlive() && !_warnedAboutMissingId)
+                {
+                    _warnedAboutMissingId = true;
+                    Debug.LogWarning($"Sensor on {name} found an object with no identifier, so it cannot be tracked and is ignored.", this);
+                }
+                return false;
             }
 
-            _candidates.RemoveWhere(candidate => candidate.IsDestroyed() || _detectedObjectsBlackList.Contains(candidate));
+            if (_detectedObjectsBlackList.Contains(id)) return false;
+
+            if (_seenById.ContainsKey(id))
+            {
+                if (!_warnedAboutDuplicateId)
+                {
+                    _warnedAboutDuplicateId = true;
+                    Debug.LogWarning($"Sensor on {name} found two objects with the identifier \"{id}\". Only the first is used. Identifiers must be unique.", this);
+                }
+                return false;
+            }
+
+            _seenById[id] = target;
+            _ids[target] = id;
+            return true;
         }
 
         private void AddInjectedDetections(in SensorContext context)
         {
             _injected.Clear();
+            _injectedIds.Clear();
 
             foreach (DetectionInjector injector in _runtimeInjectors)
             {
@@ -372,16 +454,18 @@ namespace SensorSystem
 
                 foreach (IDetectable detection in _injectorOutput)
                 {
-                    if (detection == null || detection.IsDestroyed() || _detectedObjectsBlackList.Contains(detection)) continue;
+                    if (!TryRegister(detection, out string id)) continue;
 
                     _injected.Add(detection);
+                    _injectedIds.Add(id);
                     _allDetectedObjects.Add(detection);
+                    _detectedById[id] = detection;
 
-                    if (!_detectionsCollection.ContainsKey(detection) && !_changeTraces.ContainsKey(detection))
+                    if (!_detectionsCollection.ContainsKey(id) && !_changeTraces.ContainsKey(id))
                     {
                         var trace = new EvaluationTrace();
                         trace.Passed.Add(injector.DisplayName);
-                        _changeTraces[detection] = trace;
+                        _changeTraces[id] = trace;
                     }
                 }
             }
@@ -395,6 +479,7 @@ namespace SensorSystem
                 {
                     node.OnTargetGained(target);
                 }
+                // Lost targets are snapshots, which are safe to use even though the real target may be gone.
                 foreach (IDetectable target in _lost)
                 {
                     node.OnTargetLost(target);
@@ -404,12 +489,12 @@ namespace SensorSystem
             _lost.Clear();
         }
 
-        private void OnNewDetection(KeyValuePair<IDetectable, Detection> keyValuePair)
+        private void OnNewDetection(KeyValuePair<string, Detection> keyValuePair)
         {
             OnNewDetectionEvent?.Invoke(keyValuePair.Value);
         }
 
-        private void OnLostDetection(KeyValuePair<IDetectable, Detection> keyValuePair)
+        private void OnLostDetection(KeyValuePair<string, Detection> keyValuePair)
         {
             OnLostDetectionEvent?.Invoke(keyValuePair.Value);
         }

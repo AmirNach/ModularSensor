@@ -160,12 +160,12 @@ namespace SensorSystem
             _allDetectedObjects.RemoveFromSensor(detection, detection.CurrentlyDetectingSensorInstance);
         }
 
-        private void OnNewDetectionFromDetector(KeyValuePair<IDetectable, Detection> keyValuePair)
+        private void OnNewDetectionFromDetector(KeyValuePair<string, Detection> keyValuePair)
         {
             OnNewDetectionFromDetectorEvent?.Invoke(keyValuePair.Value);
         }
 
-        private void OnLostDetectionFromDetector(KeyValuePair<IDetectable, Detection> keyValuePair)
+        private void OnLostDetectionFromDetector(KeyValuePair<string, Detection> keyValuePair)
         {
             OnLostDetectionFromDetectorEvent?.Invoke(keyValuePair.Value);
         }

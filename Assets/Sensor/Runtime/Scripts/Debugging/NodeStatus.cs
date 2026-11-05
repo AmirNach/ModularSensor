@@ -17,7 +17,7 @@ namespace SensorSystem
         {
             IDetectable target = sensor.DebugTarget;
             // Injected objects bypass the tree, so no condition decided anything about them.
-            if (target == null || sensor.LastInjected.Contains(target)) return NodeStatusKind.None;
+            if (target == null || sensor.WasInjected(target)) return NodeStatusKind.None;
 
             if (!sensor.DebugResults.TryGetValue(node, out bool result)) return NodeStatusKind.NotReached;
             return result ? NodeStatusKind.Passed : NodeStatusKind.Failed;

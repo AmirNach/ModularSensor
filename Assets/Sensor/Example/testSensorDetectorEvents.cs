@@ -13,28 +13,30 @@ public class testSensorDetectorEvents : MonoBehaviour
         Detector.OnLostDetectionFromSensorEvent += OnLostNewDetectionFromSensor;
     }
 
-    private static string GetName(Detection detection)
+    // Read the target's data from the snapshot. It still works in a lost event, even when the target was destroyed.
+    private static string Describe(Detection detection)
     {
-        return detection.DetectionComponent is MonoBehaviour behaviour && behaviour != null ? behaviour.gameObject.name : "(fake or destroyed)";
+        DetectableSnapshot target = detection.Snapshot;
+        return $"{target.Name} ({target.GetDetectionType()}, {target.Identifier}) at {target.Position}";
     }
 
     private void OnNewDetectionFromSensor(Detection detection)
     {
-        Debug.Log($"Sensor {detection.CurrentlyDetectingSensor} - New Detection {detection.ID} {GetName(detection)}");
+        Debug.Log($"Sensor {detection.CurrentlyDetectingSensor} - New Detection {detection.ID} {Describe(detection)}");
     }
 
     private void OnLostNewDetectionFromSensor(Detection detection)
     {
-        Debug.Log($"Sensor {detection.CurrentlyDetectingSensor} - Lost Detection {detection.ID} {GetName(detection)}");
+        Debug.Log($"Sensor {detection.CurrentlyDetectingSensor} - Lost Detection {detection.ID} {Describe(detection)} because {detection.LostReason}");
     }
 
     private void OnNewDetectionFromDetector(Detection detection)
     {
-        Debug.Log($"Detector - New Detection {detection.ID} {GetName(detection)}");
+        Debug.Log($"Detector - New Detection {detection.ID} {Describe(detection)}");
     }
 
     private void OnLostDetectionFromDetector(Detection detection)
     {
-        Debug.Log($"Detector - Lost Detection {detection.ID} {GetName(detection)}");
+        Debug.Log($"Detector - Lost Detection {detection.ID} {Describe(detection)} because {detection.LostReason}");
     }
 }
