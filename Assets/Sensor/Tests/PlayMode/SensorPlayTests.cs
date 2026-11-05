@@ -302,6 +302,32 @@ namespace SensorSystem.Tests
         }
 
         [UnityTest]
+        public IEnumerator EditingTheRunningTree_ChangesDetections_AndResetToSettingsRestoresThem()
+        {
+            CreateTarget(InFront);
+            var frustum = new InFrustum { MaxDistance = 100f };
+            SensorSettings settings = CreateSettings(frustum);
+            Sensor sensor = CreateSensor(settings);
+
+            yield return new WaitForSeconds(SettleSeconds);
+            CollectionAssert.AreEqual(new[] { "new" }, _events);
+
+            // Shorten the range on the running copy, the way the QA overlay does.
+            Condition before = sensor.RuntimeRoot;
+            ((InFrustum)before).MaxDistance = 5f;
+            yield return new WaitForSeconds(SettleSeconds);
+            CollectionAssert.AreEqual(new[] { "new", "lost" }, _events);
+            Assert.AreEqual(100f, frustum.MaxDistance, "The settings asset must not change.");
+
+            sensor.ResetToSettings();
+            Assert.AreNotSame(before, sensor.RuntimeRoot);
+            Assert.AreEqual(100f, ((InFrustum)sensor.RuntimeRoot).MaxDistance);
+
+            yield return new WaitForSeconds(SettleSeconds);
+            CollectionAssert.AreEqual(new[] { "new", "lost", "new" }, _events);
+        }
+
+        [UnityTest]
         public IEnumerator Detector_ExposesItsSensorsAndWhatItDetects()
         {
             GameObject target = CreateTarget(InFront);

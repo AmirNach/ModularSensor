@@ -201,8 +201,8 @@ namespace SensorSystem.Tests
                 var condition = new InAbsoluteRangesWithProbabilitiesPerEntity
                 {
                     HasLimitedDetectionAttempts = true,
-                    MaxDetectionAttemptsPerEntity = 2,
-                    DoesSaveDetectionAttempts = false,
+                    MaxDetectionAttempts = 2,
+                    StopRollingOnceDetected = false,
                     EntityTypeToDistanceProbabilities = new List<InAbsoluteRangesWithProbabilitiesPerEntity.EntityRanges>
                     {
                         new InAbsoluteRangesWithProbabilitiesPerEntity.EntityRanges
@@ -221,6 +221,62 @@ namespace SensorSystem.Tests
 
                 condition.OnTargetLost(target);
                 Assert.IsTrue(condition.Evaluate(target, context));
+            }
+            finally
+            {
+                Object.DestroyImmediate(transformOwner);
+            }
+        }
+
+        [Test]
+        public void PlainRanges_HaveTheSameAttemptOptionsAsPerEntity()
+        {
+            var transformOwner = new GameObject("sensor");
+            try
+            {
+                var condition = new InAbsoluteRangesWithProbabilities
+                {
+                    HasLimitedDetectionAttempts = true,
+                    MaxDetectionAttempts = 2,
+                    StopRollingOnceDetected = false,
+                    DistanceProbabilities = new List<DistanceProbability> { new DistanceProbability { Distance = 10f, Probability = 100f } },
+                };
+                var target = new StubTarget { EntityType = EntityType.Drone };
+                var context = new SensorContext(transformOwner.transform, null, 0f);
+
+                Assert.IsTrue(condition.Evaluate(target, context));
+                Assert.IsTrue(condition.Evaluate(target, context));
+                Assert.IsFalse(condition.Evaluate(target, context), "The third roll is over the limit.");
+
+                condition.OnTargetLost(target);
+                Assert.IsTrue(condition.Evaluate(target, context));
+            }
+            finally
+            {
+                Object.DestroyImmediate(transformOwner);
+            }
+        }
+
+        [Test]
+        public void StopRollingOnceDetected_KeepsTheDetectionWithoutRollingAgain()
+        {
+            var transformOwner = new GameObject("sensor");
+            try
+            {
+                var condition = new InAbsoluteRangesWithProbabilities
+                {
+                    StopRollingOnceDetected = true,
+                    HasLimitedDetectionAttempts = true,
+                    MaxDetectionAttempts = 1,
+                    DistanceProbabilities = new List<DistanceProbability> { new DistanceProbability { Distance = 10f, Probability = 100f } },
+                };
+                var target = new StubTarget { EntityType = EntityType.Drone };
+                var context = new SensorContext(transformOwner.transform, null, 0f);
+
+                for (int i = 0; i < 5; i++)
+                {
+                    Assert.IsTrue(condition.Evaluate(target, context), "Once detected, it must not need another roll.");
+                }
             }
             finally
             {

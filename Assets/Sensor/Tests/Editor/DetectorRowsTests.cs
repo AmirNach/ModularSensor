@@ -48,7 +48,7 @@ namespace SensorSystem.Tests
                 Sensor("B", new[] { target }, new IDetectable[0]),
             };
 
-            List<TargetRow> rows = DetectorLiveView.BuildRows(sensors, NoIds);
+            List<TargetRow> rows = TargetRows.ForDetector(sensors, NoIds);
 
             Assert.AreEqual(1, rows.Count, "One row per object, however many sensors look at it.");
             Assert.AreEqual(TargetState.Passed, rows[0].State);
@@ -60,7 +60,7 @@ namespace SensorSystem.Tests
         public void SeenButDetectedByNone_IsFailed()
         {
             Stub target = Target("t");
-            List<TargetRow> rows = DetectorLiveView.BuildRows(new[]
+            List<TargetRow> rows = TargetRows.ForDetector(new[]
             {
                 Sensor("A", new[] { target }, new IDetectable[0]),
                 Sensor("B", new[] { target }, new IDetectable[0]),
@@ -73,7 +73,7 @@ namespace SensorSystem.Tests
         public void DetectedOnlyBecauseOfInjectors_IsInjected()
         {
             Stub fake = Target("fake");
-            List<TargetRow> rows = DetectorLiveView.BuildRows(new[]
+            List<TargetRow> rows = TargetRows.ForDetector(new[]
             {
                 Sensor("A", new IDetectable[0], new[] { fake }, new[] { fake }),
             }, NoIds);
@@ -85,7 +85,7 @@ namespace SensorSystem.Tests
         public void InjectedByOneSensorButPassedByAnother_IsPassed()
         {
             Stub target = Target("t");
-            List<TargetRow> rows = DetectorLiveView.BuildRows(new[]
+            List<TargetRow> rows = TargetRows.ForDetector(new[]
             {
                 Sensor("A", new IDetectable[0], new[] { target }, new[] { target }),
                 Sensor("B", new[] { target }, new[] { target }),
@@ -100,7 +100,7 @@ namespace SensorSystem.Tests
             Stub onlyA = Target("a");
             Stub onlyB = Target("b");
             Stub both = Target("both");
-            List<TargetRow> rows = DetectorLiveView.BuildRows(new[]
+            List<TargetRow> rows = TargetRows.ForDetector(new[]
             {
                 Sensor("A", new IDetectable[] { onlyA, both }, new IDetectable[0]),
                 Sensor("B", new IDetectable[] { onlyB, both }, new IDetectable[0]),
@@ -117,7 +117,7 @@ namespace SensorSystem.Tests
             Stub target = Target("t", 10f);
             var ids = new Dictionary<IDetectable, int> { { target, 42 } };
 
-            List<TargetRow> rows = DetectorLiveView.BuildRows(new[]
+            List<TargetRow> rows = TargetRows.ForDetector(new[]
             {
                 Sensor("Far", new[] { target }, new IDetectable[0], null, -30f),
                 Sensor("Near", new[] { target }, new[] { target }, null, 7f),
@@ -139,7 +139,7 @@ namespace SensorSystem.Tests
                 Sensor("C", new[] { target }, new[] { target }),
             };
 
-            CollectionAssert.AreEqual(new[] { "A", "C" }, DetectorLiveView.GetDetectingSensors(target, sensors));
+            CollectionAssert.AreEqual(new[] { "A", "C" }, TargetRows.GetDetectingSensors(target, sensors));
         }
     }
 }

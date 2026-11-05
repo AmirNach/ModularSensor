@@ -4,20 +4,20 @@ using UnityEngine;
 
 namespace SensorSystem
 {
-    /// <summary>Rolls every refresh, using the probability for the target's distance.</summary>
+    /// <summary>Rolls by distance. The same list of distances and probabilities applies to every object.</summary>
     [Serializable]
-    public abstract class RangesWithProbabilities : Condition
+    public abstract class RangesWithProbabilities : ProbabilityRollCondition
     {
         public List<DistanceProbability> DistanceProbabilities = new List<DistanceProbability>();
 
         protected abstract float GetDistance(Vector3 sensorPosition, Vector3 targetPosition);
 
-        public override string Summary => DistanceProbabilities == null || DistanceProbabilities.Count == 0 ? "No ranges set" : $"{DistanceProbabilities.Count} ranges";
+        public override string Summary => (DistanceProbabilities == null || DistanceProbabilities.Count == 0 ? "No ranges set" : $"{DistanceProbabilities.Count} ranges") + AttemptsSummary;
 
-        public override bool Evaluate(IDetectable target, in SensorContext context)
+        protected override float GetProbability(IDetectable target, in SensorContext context)
         {
             float distance = GetDistance(context.SensorTransform.position, target.GetCenterPosition());
-            return DistanceProbability.Roll(DistanceProbability.Find(DistanceProbabilities, distance));
+            return DistanceProbability.Find(DistanceProbabilities, distance);
         }
     }
 

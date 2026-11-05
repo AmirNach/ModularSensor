@@ -81,6 +81,29 @@ A `Detection` also lists which leaf conditions the target passed (`AllPassedCond
 
 An empty AND or OR evaluates to false, and an empty tree detects nothing.
 
+## QA overlay (in the running game)
+
+Add a **Sensor Debug Overlay** to any object (`Add Component > Sensor > Sensor Debug Overlay`). In the Editor's Game view and in development builds a small **Sensors** button appears in the top-right corner. It opens a panel where QA can:
+
+- pick any Sensor or Detector in the scene,
+- see its objects grouped as passed, failed and injected, filter them by name and pick one,
+- see the condition tree with Passed, Failed or Not reached beside each condition for the picked object,
+- expand a condition and **change its values while the game runs**. Every serialized field gets a control (numbers, sliders, toggles, drop-downs, vectors, layer masks, lists of values or of serializable classes), including the fields of conditions you write later, with no extra code,
+- press **Reset values** to go back to what the settings asset says.
+
+Changes apply to that sensor's own running copy of the tree. Nothing is written to the settings asset, and they are lost when the game stops. In release builds the overlay switches itself off.
+
+**Opening it from code, or without code.** The button and your own code open and close the overlay by dispatching commands, so nothing needs a reference to the overlay:
+
+```csharp
+SensorDebug.Dispatch(new ToggleOverlayCommand());
+SensorDebug.Dispatch(new FocusSensorCommand(mySensor));   // open it on a sensor
+```
+
+Or add **Sensor Debug Commands** to any object and point a UI button, a UnityEvent or an Input System action at its `Toggle`, `Open` or `Close`. `Dispatch` returns `false` and does nothing when no overlay is listening. To add a command of your own, implement `ISensorDebugCommand`.
+
+UI Toolkit needs an `EventSystem` to receive the mouse. If the scene has none, the overlay adds one that matches your input setup (the Input System package or the old Input Manager).
+
 ## Add your own condition
 
 Write one class. Public fields become its settings in the inspector, and it shows up in the add menu on its own.

@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using NUnit.Framework;
-using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace SensorSystem.Tests
 {
@@ -20,22 +20,15 @@ namespace SensorSystem.Tests
             public float GetVelocity() => 0f;
         }
 
-        private string _key;
+        private const string _key = "Test";
+
+        private MemoryUiStateStore _store;
 
         [SetUp]
         public void SetUp()
         {
-            _key = "Test." + GUID.Generate();
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            SessionState.EraseString($"SensorSystem.TargetList.{_key}.Filter");
-            foreach (string title in new[] { "Passed", "Failed", "Injected" })
-            {
-                SessionState.EraseBool($"SensorSystem.TargetList.{_key}.{title}");
-            }
+            // A fresh store per test, so nothing leaks between tests or into the Editor.
+            _store = new MemoryUiStateStore();
         }
 
         private static List<TargetRow> MakeRows(int passed, int failed, int injected)
@@ -55,7 +48,7 @@ namespace SensorSystem.Tests
         [Test]
         public void ShowsThreeGroupsWithTheirCounts()
         {
-            var view = new TargetListView(_key);
+            var view = new TargetListView(_key, _store);
             view.SetRows(MakeRows(3, 5, 2));
 
             Assert.AreEqual("Passed (3)", view.GetTitle(TargetState.Passed));
@@ -66,7 +59,7 @@ namespace SensorSystem.Tests
         [Test]
         public void Filter_NarrowsEveryGroupAndShowsTheShare()
         {
-            var view = new TargetListView(_key);
+            var view = new TargetListView(_key, _store);
             view.SetRows(MakeRows(12, 40, 2));
 
             view.FilterText = "target 1";
@@ -82,7 +75,7 @@ namespace SensorSystem.Tests
         [Test]
         public void Filter_AppliesToRowsThatArriveLater()
         {
-            var view = new TargetListView(_key);
+            var view = new TargetListView(_key, _store);
             view.FilterText = "crate";
 
             view.SetRows(MakeRows(2, 6, 0));
@@ -94,7 +87,7 @@ namespace SensorSystem.Tests
         [Test]
         public void ExpandAndCollapseAll_OpenOrCloseEveryGroup()
         {
-            var view = new TargetListView(_key);
+            var view = new TargetListView(_key, _store);
 
             view.ExpandAll(false);
             foreach (TargetState state in System.Enum.GetValues(typeof(TargetState)))
@@ -112,11 +105,11 @@ namespace SensorSystem.Tests
         [Test]
         public void FoldStateAndFilter_SurviveRebuildingTheView()
         {
-            var first = new TargetListView(_key);
+            var first = new TargetListView(_key, _store);
             first.ExpandAll(false);
             first.FilterText = "crate";
 
-            var second = new TargetListView(_key);
+            var second = new TargetListView(_key, _store);
 
             Assert.IsFalse(second.IsExpanded(TargetState.Failed));
             Assert.AreEqual("crate", second.FilterText);
@@ -125,7 +118,7 @@ namespace SensorSystem.Tests
         [Test]
         public void GroupWithNoRows_StaysVisibleAndSaysNone()
         {
-            var view = new TargetListView(_key);
+            var view = new TargetListView(_key, _store);
             view.SetRows(MakeRows(1, 0, 0));
 
             Assert.AreEqual("Failed (0)", view.GetTitle(TargetState.Failed));
@@ -135,7 +128,7 @@ namespace SensorSystem.Tests
         [Test]
         public void SetSelected_HighlightsTheRowWithoutRaisingAPick()
         {
-            var view = new TargetListView(_key);
+            var view = new TargetListView(_key, _store);
             List<TargetRow> rows = MakeRows(3, 0, 0);
             int picks = 0;
             view.TargetPicked += _ => picks++;
@@ -152,7 +145,7 @@ namespace SensorSystem.Tests
         [Test]
         public void ASelectedTargetHiddenByTheFilterStaysSelected()
         {
-            var view = new TargetListView(_key);
+            var view = new TargetListView(_key, _store);
             List<TargetRow> rows = MakeRows(3, 0, 0);
             view.SetRows(rows);
             view.SetSelected(rows[0].Target);
@@ -164,9 +157,40 @@ namespace SensorSystem.Tests
         }
 
         [Test]
+        public void AShortListHasNoScrollbar_AndALongOneKeepsIt()
+        {
+            var view = new TargetListView(_key, _store);
+
+            view.SetRows(MakeRows(3, 0, 0));
+            Assert.AreEqual(ScrollerVisibility.Hidden, view.GetList(TargetState.Passed).Q<ScrollView>().verticalScrollerVisibility);
+
+            view.SetRows(MakeRows(TargetListView.MaxVisibleRows, 0, 0));
+            Assert.AreEqual(ScrollerVisibility.Hidden, view.GetList(TargetState.Passed).Q<ScrollView>().verticalScrollerVisibility,
+                "A list of exactly the visible number of rows fits.");
+
+            view.SetRows(MakeRows(TargetListView.MaxVisibleRows + 1, 0, 0));
+            Assert.AreEqual(ScrollerVisibility.Auto, view.GetList(TargetState.Passed).Q<ScrollView>().verticalScrollerVisibility);
+
+            view.SetRows(MakeRows(2, 0, 0));
+            Assert.AreEqual(ScrollerVisibility.Hidden, view.GetList(TargetState.Passed).Q<ScrollView>().verticalScrollerVisibility,
+                "It should go away again when the list shrinks.");
+        }
+
+        [Test]
+        public void TheListIsTallEnoughForEveryRowItShows()
+        {
+            var view = new TargetListView(_key, _store);
+            view.SetRows(MakeRows(3, 0, 0));
+
+            float height = view.GetList(TargetState.Passed).style.height.value.value;
+
+            Assert.GreaterOrEqual(height, 3 * TargetListView.RowHeight + 4f, "Room for the rows plus the list's own border.");
+        }
+
+        [Test]
         public void ThousandsOfRows_StayQuickAndTheListHeightIsCapped()
         {
-            var view = new TargetListView(_key);
+            var view = new TargetListView(_key, _store);
             List<TargetRow> rows = MakeRows(0, 3000, 0);
 
             var timer = Stopwatch.StartNew();
@@ -178,7 +202,9 @@ namespace SensorSystem.Tests
 
             Assert.AreEqual(3000, view.GetRows(TargetState.Failed).Count);
             float expectedHeight = TargetListView.MaxVisibleRows * TargetListView.RowHeight;
-            Assert.AreEqual(expectedHeight, view.GetList(TargetState.Failed).style.height.value.value, 3f);
+            float height = view.GetList(TargetState.Failed).style.height.value.value;
+            Assert.GreaterOrEqual(height, expectedHeight, "Room for the visible rows.");
+            Assert.LessOrEqual(height, expectedHeight + 12f, "No taller than the visible rows plus the list's border.");
             Assert.Less(timer.ElapsedMilliseconds, 2000, "Five refreshes of 3000 rows should be far below this.");
         }
 

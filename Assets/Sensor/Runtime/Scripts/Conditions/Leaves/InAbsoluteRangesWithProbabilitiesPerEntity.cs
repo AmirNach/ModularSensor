@@ -5,11 +5,10 @@ using UnityEngine;
 namespace SensorSystem
 {
     /// <summary>
-    /// Rolls by entity type and distance. Attempts only count when the tree reaches this node,
-    /// so an earlier failing condition in an And saves attempts.
+    /// Rolls by entity type and distance. Each entity type has its own list of distances and probabilities.
     /// </summary>
     [Serializable, ConditionMenu("Probability/In absolute ranges per entity")]
-    public class InAbsoluteRangesWithProbabilitiesPerEntity : Condition
+    public class InAbsoluteRangesWithProbabilitiesPerEntity : ProbabilityRollCondition
     {
         [Serializable]
         public class EntityRanges
@@ -19,58 +18,15 @@ namespace SensorSystem
         }
 
         public List<EntityRanges> EntityTypeToDistanceProbabilities = new List<EntityRanges>();
-        public bool HasLimitedDetectionAttempts;
-        [Min(0)] public int MaxDetectionAttemptsPerEntity;
-        [Tooltip("Once a roll succeeds, stop rolling until the sensor loses the target.")]
-        public bool DoesSaveDetectionAttempts = true;
 
-        [NonSerialized] private HashSet<IDetectable> _passedRoll;
-        [NonSerialized] private Dictionary<IDetectable, int> _attempts;
+        public override string Summary => $"{EntityTypeToDistanceProbabilities.Count} entity types" + AttemptsSummary;
 
-        private HashSet<IDetectable> PassedRoll => _passedRoll ??= new HashSet<IDetectable>();
-        private Dictionary<IDetectable, int> Attempts => _attempts ??= new Dictionary<IDetectable, int>();
-
-        public override string Summary => $"{EntityTypeToDistanceProbabilities.Count} entity types" + (HasLimitedDetectionAttempts ? $", max {MaxDetectionAttemptsPerEntity} attempts" : "");
-
-        public override bool Evaluate(IDetectable target, in SensorContext context)
+        protected override float GetProbability(IDetectable target, in SensorContext context)
         {
-            if (!(target is IEntityTyped entity)) return false;
+            if (!(target is IEntityTyped entity)) return 0f;
 
             float distance = Vector3.Distance(context.SensorTransform.position, target.GetCenterPosition());
-            float probability = DistanceProbability.Find(GetDistanceProbabilities(entity.EntityType), distance);
-            if (probability <= 0f)
-            {
-                PassedRoll.Remove(target);
-                return false;
-            }
-
-            if (DoesSaveDetectionAttempts && PassedRoll.Contains(target)) return true;
-
-            if (HasLimitedDetectionAttempts)
-            {
-                Attempts.TryGetValue(target, out int attempts);
-                if (attempts >= MaxDetectionAttemptsPerEntity)
-                {
-                    PassedRoll.Remove(target);
-                    return false;
-                }
-                Attempts[target] = attempts + 1;
-            }
-
-            if (DistanceProbability.Roll(probability))
-            {
-                PassedRoll.Add(target);
-                return true;
-            }
-
-            PassedRoll.Remove(target);
-            return false;
-        }
-
-        public override void OnTargetLost(IDetectable target)
-        {
-            PassedRoll.Remove(target);
-            Attempts.Remove(target);
+            return DistanceProbability.Find(GetDistanceProbabilities(entity.EntityType), distance);
         }
 
         /// <summary>Changes probabilities at runtime, 0 to 100. A null type or distance means all of them.</summary>

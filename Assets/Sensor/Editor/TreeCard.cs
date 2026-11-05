@@ -9,19 +9,10 @@ namespace SensorSystem
 {
     public static class SensorEditorStyles
     {
-        private const string StyleSheetName = "SensorEditor";
-
-        /// <summary>Looks the sheet up by name, so the package can live in any folder.</summary>
+        /// <summary>The stylesheet is shared with the runtime overlay and lives in a Resources folder.</summary>
         public static void Apply(VisualElement element)
         {
-            string[] guids = AssetDatabase.FindAssets($"{StyleSheetName} t:StyleSheet");
-            if (guids.Length == 0) return;
-
-            var sheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(AssetDatabase.GUIDToAssetPath(guids[0]));
-            if (sheet != null)
-            {
-                element.styleSheets.Add(sheet);
-            }
+            SensorStyles.Apply(element);
         }
 
         public static void AddFields(VisualElement parent, SerializedProperty owner, params string[] skippedFields)
@@ -74,9 +65,6 @@ namespace SensorSystem
     /// <summary>A collapsible row with a title, a one-line summary, warnings and a menu.</summary>
     public class TreeCard : VisualElement
     {
-        private const string ExpandedArrow = "▼";
-        private const string CollapsedArrow = "▶";
-
         public VisualElement Header { get; } = new VisualElement();
         public VisualElement Body { get; } = new VisualElement();
         public VisualElement ChildArea { get; } = new VisualElement();
@@ -88,7 +76,7 @@ namespace SensorSystem
 
         public event Action<bool> ExpandedChanged;
 
-        private readonly Button _arrow = new Button();
+        private readonly FoldArrow _arrow = new FoldArrow();
         private readonly VisualElement _warning = new VisualElement();
         private readonly Label _warningLabel = new Label();
         private readonly Button _menuButton = new Button { text = "..." };
@@ -104,8 +92,6 @@ namespace SensorSystem
             Badge.AddToClassList("sensor-badge");
             TitleLabel.AddToClassList("sensor-card-title");
             SummaryLabel.AddToClassList("sensor-card-summary");
-            _arrow.AddToClassList("sensor-arrow");
-            _arrow.tooltip = "Expand or collapse";
             _warning.AddToClassList("sensor-warning");
             _warningLabel.AddToClassList("sensor-warning-text");
             _menuButton.AddToClassList("sensor-menu-button");
@@ -142,7 +128,7 @@ namespace SensorSystem
         public void SetExpanded(bool expanded, bool notify)
         {
             Expanded = expanded;
-            _arrow.text = expanded ? ExpandedArrow : CollapsedArrow;
+            _arrow.SetState(HasContent, expanded);
             Body.style.display = expanded && Body.childCount > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             ChildArea.style.display = expanded && ChildArea.childCount > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             SummaryLabel.style.display = !expanded && !string.IsNullOrEmpty(SummaryLabel.text) ? DisplayStyle.Flex : DisplayStyle.None;
@@ -168,17 +154,18 @@ namespace SensorSystem
             _warning.style.display = string.IsNullOrEmpty(text) ? DisplayStyle.None : DisplayStyle.Flex;
         }
 
+        private bool HasContent => Body.childCount > 0 || ChildArea.childCount > 0;
+
         /// <summary>Hides the arrow on a card with nothing to expand.</summary>
         protected void RefreshArrow()
         {
-            bool hasContent = Body.childCount > 0 || ChildArea.childCount > 0;
-            _arrow.style.visibility = hasContent ? Visibility.Visible : Visibility.Hidden;
+            _arrow.SetState(HasContent, Expanded);
         }
 
         private void OnHeaderClicked(ClickEvent evt)
         {
             if (evt.target == _menuButton || evt.target == _arrow || evt.target == Handle) return;
-            if (_arrow.style.visibility == Visibility.Hidden) return;
+            if (!HasContent) return;
 
             SetExpanded(!Expanded, true);
         }

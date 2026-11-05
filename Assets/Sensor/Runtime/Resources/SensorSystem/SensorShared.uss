@@ -151,7 +151,8 @@
 }
 
 .sensor-card-body {
-    padding: 2px 6px 6px 8px;
+    /* The left padding leaves room for the small arrows Unity draws for lists, so they do not touch the bar. */
+    padding: 2px 6px 6px 18px;
 }
 
 .sensor-children {
@@ -172,14 +173,28 @@
     opacity: 1;
 }
 
+/* One glyph, turned sideways when closed, so the arrow never changes size */
 .sensor-arrow {
     width: 18px;
     height: 18px;
-    margin: 0;
+    min-width: 18px;
+    min-height: 18px;
+    margin: 0 6px 0 2px;
     padding: 0;
-    font-size: 8px;
+    font-size: 10px;
+    -unity-text-align: middle-center;
     background-color: rgba(0, 0, 0, 0);
     border-width: 0;
+    border-radius: 3px;
+    rotate: 0deg;
+}
+
+.sensor-arrow--collapsed {
+    rotate: -90deg;
+}
+
+.sensor-arrow:hover {
+    background-color: rgba(255, 255, 255, 0.12);
 }
 
 .sensor-badge {
@@ -210,8 +225,12 @@
 
 .sensor-card-title {
     -unity-font-style: bold;
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-width: 0;
     margin-right: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .sensor-header-spacer {
@@ -307,8 +326,9 @@
     border-left-color: rgb(150, 105, 200);
 }
 
+/* An empty group says "None" inside. It is not faded, so it reads like the others. */
 .sensor-target-group--empty {
-    opacity: 0.55;
+    opacity: 1;
 }
 
 .sensor-target-items {
@@ -327,15 +347,52 @@
 
 .sensor-target-name {
     flex-shrink: 1;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    -unity-text-align: middle-left;
 }
 
 .sensor-target-detail {
     flex-shrink: 0;
-    margin-left: 8px;
+    margin: 0 0 0 8px;
+    padding: 0;
     opacity: 0.7;
+    -unity-text-align: middle-right;
+}
+
+.sensor-section {
+    margin-top: 6px;
+}
+
+/* The collapsible group: one arrow, the same everywhere */
+
+.sensor-group-header {
+    flex-direction: row;
+    align-items: center;
+    min-height: 22px;
+    padding-left: 4px;
+}
+
+.sensor-group-title {
+    margin: 0;
+    padding: 0;
+    -unity-text-align: middle-left;
+}
+
+.sensor-group-content {
+    margin-left: 26px;
+}
+
+.sensor-section > .sensor-group-header .sensor-group-title {
+    -unity-font-style: bold;
+    font-size: 14px;
+}
+
+.sensor-params .sensor-group-content {
+    margin-left: 22px;
 }
 
 .sensor-detector-summary {
@@ -369,4 +426,70 @@
 .sensor-status--skipped {
     opacity: 0.6;
     -unity-font-style: normal;
+}
+
+/* Search box that works in the Editor and in builds */
+
+.sensor-search {
+    flex-direction: row;
+    align-items: center;
+}
+
+.sensor-search-input {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 1px 2px;
+}
+
+.sensor-search-clear {
+    width: 22px;
+    margin: 1px 2px 1px 0;
+    padding: 0;
+}
+
+/* Editable values of a condition */
+
+.sensor-params {
+    padding: 2px 0;
+}
+
+.sensor-param-header {
+    -unity-font-style: bold;
+    margin: 6px 0 2px 3px;
+}
+
+.sensor-param-row {
+    flex-direction: row;
+    align-items: center;
+    margin: 3px 0;
+    padding: 2px 3px;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.sensor-param-row-control {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.sensor-param-remove {
+    width: 22px;
+    margin-left: 4px;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.sensor-param-list {
+    margin-left: 4px;
+}
+
+.sensor-param-readonly {
+    opacity: 0.7;
+    margin: 2px 3px;
+    white-space: normal;
+}
+
+.sensor-reset-button {
+    align-self: flex-start;
+    margin: 6px 3px;
 }

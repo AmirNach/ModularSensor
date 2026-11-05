@@ -27,7 +27,7 @@ namespace SensorSystem
             SensorEditorStyles.AddSection(root, "Injected detections", "Added directly to the result, bypassing the tree. Used for fake detections.");
             root.Add(new InjectorListView(settings));
 
-            var idFoldout = new Foldout { text = "Detection IDs", value = false };
+            var idFoldout = new CollapsibleGroup("Detection IDs", false);
             idFoldout.AddToClassList("sensor-advanced");
             var idHint = new Label("Each detection gets an ID from this range.");
             idHint.AddToClassList("sensor-hint");

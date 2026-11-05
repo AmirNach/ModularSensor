@@ -109,6 +109,29 @@ namespace SensorSystem
                 return;
             }
 
+            LoadRuntimeTree();
+
+            _allObjectsCollection = CreateAllObjectsCollection();
+            _detectionsCollection = new DetectionsCollection(_settings, OnNewDetection, OnLostDetection);
+        }
+
+        /// <summary>
+        /// Takes fresh copies of the settings' tree and injectors, dropping any change made to this
+        /// sensor's running copy, such as values edited in the QA overlay. The settings asset is never touched.
+        /// </summary>
+        public void ResetToSettings()
+        {
+            if (_settings == null) return;
+
+            foreach (DetectionInjector injector in _runtimeInjectors)
+            {
+                injector?.ResetState();
+            }
+            LoadRuntimeTree();
+        }
+
+        private void LoadRuntimeTree()
+        {
             ConditionTree.Clone(_settings.Root, _settings.Injectors, out Condition root, out _runtimeInjectors);
             RuntimeRoot = root;
             _runtimeNodes = ConditionTree.Flatten(RuntimeRoot);
@@ -117,9 +140,6 @@ namespace SensorSystem
             {
                 Debug.LogWarning($"Sensor on {name} has an empty condition tree and no injectors, so it detects nothing.", this);
             }
-
-            _allObjectsCollection = CreateAllObjectsCollection();
-            _detectionsCollection = new DetectionsCollection(_settings, OnNewDetection, OnLostDetection);
         }
 
         protected virtual void OnEnable()
