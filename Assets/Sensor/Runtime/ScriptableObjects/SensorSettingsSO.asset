@@ -15,29 +15,37 @@ MonoBehaviour:
   _firstDetectionId: 1
   _lastDetectionId: 99999
   _shuffledNumbers: 0
-  _refreshRate: 1
+  _refreshRate: 0.5
   Root:
-    rid: 8550116959127863628
-  Sources: []
+    rid: 8550116980964196600
+  Injectors: []
   references:
     version: 2
     RefIds:
-    - rid: 8550116959127863628
-      type: {class: And, ns: SensorSystem, asm: Sensor.Runtime}
-      data:
-        Children:
-        - rid: 8550116959127863629
-        - rid: 8550116959127863630
-    - rid: 8550116959127863629
-      type: {class: InFrustum, ns: SensorSystem, asm: Sensor.Runtime}
-      data:
-        HorizontalFov: 60
-        VerticalFov: 40
-        MinDistance: 0.1
-        MaxDistance: 100
-    - rid: 8550116959127863630
+    - rid: 8550116980964196480
       type: {class: WithRaycast, ns: SensorSystem, asm: Sensor.Runtime}
       data:
         RaycastIgnoreLayerMask:
           serializedVersion: 2
           m_Bits: 0
+    - rid: 8550116980964196600
+      type: {class: And, ns: SensorSystem, asm: Sensor.Runtime}
+      data:
+        Children:
+        - rid: 8550116980964196480
+        - rid: 8550116980964196601
+    - rid: 8550116980964196601
+      type: {class: And, ns: SensorSystem, asm: Sensor.Runtime}
+      data:
+        Children:
+        - rid: 8550116980964196602
+        - rid: 8550116980964196603
+    - rid: 8550116980964196602
+      type: {class: InAbsoluteRangesWithProbabilities, ns: SensorSystem, asm: Sensor.Runtime}
+      data:
+        DistanceProbabilities: []
+    - rid: 8550116980964196603
+      type: {class: IsAngleClamped, ns: SensorSystem, asm: Sensor.Runtime}
+      data:
+        MinAngle: -45
+        MaxAngle: 45
