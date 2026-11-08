@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace SensorSystem
 {
@@ -19,47 +18,49 @@ namespace SensorSystem
             _idGenerator = new LocalUniqueIdGenerator(idSettings.MinDetectionId, idSettings.MaxDetectionId, idSettings.ShuffleIdNumbers);
         }
 
-        /// <summary>
-        /// Sensor side: makes the collection match the current targets, reporting what changed.
-        /// </summary>
-        /// <param name="current">The targets that are detected now, by ID.</param>
-        /// <param name="seen">Every target the sensor found in this refresh, by ID. A lost target that is still in here failed the conditions, otherwise it is gone.</param>
-        /// <param name="gained">Gets the live target of each new detection.</param>
-        /// <param name="lost">Gets the snapshot of each lost detection, which still works after the target is gone.</param>
-        public void UpdateDetectionsCollection(Sensor sensor, Dictionary<string, IDetectable> current, Dictionary<string, IDetectable> seen, Dictionary<string, EvaluationTrace> changeTraces, List<IDetectable> gained, List<IDetectable> lost)
+        /// <summary>The detections by ID, for the sensor to walk without copying. Do not change it through this.</summary>
+        internal Dictionary<string, Detection> Items => Collection;
+
+        /// <summary>Sensor side: a target is newly detected.</summary>
+        internal Detection AddNew(IDetectable target, string id, Sensor sensor, EvaluationTrace trace, float distance)
         {
-            Vector3 sensorPosition = sensor.transform.position;
-            CopyKeys();
+            var detection = new Detection(target, id, _idGenerator.GetAvailableId(), sensor, trace?.Passed ?? new HashSet<string>(), trace?.Failed ?? new HashSet<string>(), distance);
+            AddItem(new KeyValuePair<string, Detection>(id, detection));
+            return detection;
+        }
+
+        /// <summary>Sensor side: the sensor saw the target and the conditions no longer accept it.</summary>
+        internal void RemoveFailed(Detection detection, EvaluationTrace trace, List<IDetectable> lost)
+        {
+            if (trace != null)
+            {
+                detection.AllPassedConditions = trace.Passed;
+                detection.AllFailedConditions = trace.Failed;
+            }
+            detection.LostReason = DetectionLostReason.ConditionsFailed;
+            lost.Add(detection.Snapshot);
+            RemoveItem(new KeyValuePair<string, Detection>(detection.TargetId, detection));
+        }
+
+        /// <summary>Sensor side: removes every detection whose target the sensor did not find in this refresh. Those targets are gone.</summary>
+        internal void RemoveMissing(Dictionary<string, int> seen, List<IDetectable> lost)
+        {
+            _keys.Clear();
+            foreach (KeyValuePair<string, Detection> entry in Collection)
+            {
+                if (!seen.ContainsKey(entry.Key))
+                {
+                    _keys.Add(entry.Key);
+                }
+            }
 
             foreach (string key in _keys)
             {
                 if (!Collection.TryGetValue(key, out Detection detection)) continue;
 
-                if (current.TryGetValue(key, out IDetectable live))
-                {
-                    detection.Refresh(live, Vector3.Distance(sensorPosition, live.GetCenterPosition()));
-                    continue;
-                }
-
-                if (changeTraces.TryGetValue(key, out EvaluationTrace trace))
-                {
-                    detection.AllPassedConditions = trace.Passed;
-                    detection.AllFailedConditions = trace.Failed;
-                }
-                detection.LostReason = seen.ContainsKey(key) ? DetectionLostReason.ConditionsFailed : DetectionLostReason.TargetDestroyed;
+                detection.LostReason = DetectionLostReason.TargetDestroyed;
                 lost.Add(detection.Snapshot);
                 RemoveItem(new KeyValuePair<string, Detection>(key, detection));
-            }
-
-            foreach (KeyValuePair<string, IDetectable> entry in current)
-            {
-                if (Collection.ContainsKey(entry.Key)) continue;
-
-                changeTraces.TryGetValue(entry.Key, out EvaluationTrace trace);
-                float distance = Vector3.Distance(sensorPosition, entry.Value.GetCenterPosition());
-                var detection = new Detection(entry.Value, entry.Key, _idGenerator.GetAvailableId(), sensor, trace?.Passed ?? new HashSet<string>(), trace?.Failed ?? new HashSet<string>(), distance);
-                gained.Add(entry.Value);
-                AddItem(new KeyValuePair<string, Detection>(entry.Key, detection));
             }
         }
 
@@ -73,9 +74,7 @@ namespace SensorSystem
                 return;
             }
 
-            var detection = new Detection(sensorDetection.DetectionComponent, key, _idGenerator.GetAvailableId(), sensor, sensorDetection.AllPassedConditions, sensorDetection.AllFailedConditions, sensorDetection.DistanceFromSensorToDetection);
-            detection.Snapshot.CopyFrom(sensorDetection.Snapshot);
-            AddItem(new KeyValuePair<string, Detection>(key, detection));
+            AddItem(new KeyValuePair<string, Detection>(key, new Detection(sensorDetection, _idGenerator.GetAvailableId(), sensor)));
         }
 
         /// <summary>Detector side: a sensor stopped detecting a target. It is removed once no sensor detects it.</summary>
@@ -91,7 +90,7 @@ namespace SensorSystem
             if (existing.AllDetectingSensors.Count == 0)
             {
                 // The detector sees the target through its sensors, so it ends for the same reason the last sensor's did.
-                existing.Snapshot.CopyFrom(sensorDetection.Snapshot);
+                existing.UseSnapshotOf(sensorDetection);
                 existing.LostReason = sensorDetection.LostReason;
                 RemoveItem(new KeyValuePair<string, Detection>(key, existing));
             }
@@ -99,7 +98,8 @@ namespace SensorSystem
 
         public void RemoveAllItems(List<IDetectable> lost = null)
         {
-            CopyKeys();
+            _keys.Clear();
+            _keys.AddRange(Collection.Keys);
             foreach (string key in _keys)
             {
                 if (Collection.TryGetValue(key, out Detection detection))
@@ -115,12 +115,6 @@ namespace SensorSystem
         {
             base.RemoveItem(item);
             _idGenerator.Release(item.Value.ID);
-        }
-
-        private void CopyKeys()
-        {
-            _keys.Clear();
-            _keys.AddRange(Collection.Keys);
         }
     }
 }

@@ -52,16 +52,37 @@ namespace SensorSystem
         public IReadOnlyList<DetectionInjector> RuntimeInjectors => _runtimeInjectors;
 
         /// <summary>Objects evaluated by the tree in the last refresh. Treat it as read-only.</summary>
-        public IReadOnlyCollection<IDetectable> LastCandidates => _candidates;
+        public IReadOnlyCollection<IDetectable> LastCandidates
+        {
+            get
+            {
+                BuildViews();
+                return _candidatesView;
+            }
+        }
 
         /// <summary>Detections added by injectors in the last refresh. Treat it as read-only.</summary>
-        public IReadOnlyCollection<IDetectable> LastInjected => _injected;
+        public IReadOnlyCollection<IDetectable> LastInjected
+        {
+            get
+            {
+                BuildViews();
+                return _injectedView;
+            }
+        }
 
         /// <summary>
         /// How far each object in LastCandidates and LastInjected was from this sensor when the last refresh ran.
         /// It changes only with the sensor's refresh rate, like the detections it sits next to. Treat it as read-only.
         /// </summary>
-        public IReadOnlyDictionary<IDetectable, float> LastDistances => _distances;
+        public IReadOnlyDictionary<IDetectable, float> LastDistances
+        {
+            get
+            {
+                BuildViews();
+                return _distancesView;
+            }
+        }
 
         /// <summary>
         /// When set, the next refreshes record every node's result for this target in DebugResults.
@@ -74,18 +95,33 @@ namespace SensorSystem
 
         protected virtual Camera ContextCamera => null;
 
+        /// <summary>Everything one refresh knows about one object, in one place, so the refresh walks an array and does not look anything up.</summary>
+        private struct RefreshEntry
+        {
+            public IDetectable Target;
+            public string Id;
+            /// <summary>The detection this target already had when the refresh began. Null when it has none yet.</summary>
+            public Detection Detection;
+            /// <summary>Only set when the target was gained or lost in this refresh.</summary>
+            public EvaluationTrace Trace;
+            public Vector3 Position;
+            public float Distance;
+            public bool Passed;
+            public bool Injected;
+        }
+
         private readonly HashSet<string> _detectedObjectsBlackList = new HashSet<string>();
-        private readonly HashSet<IDetectable> _candidates = new HashSet<IDetectable>();
-        private readonly HashSet<IDetectable> _injected = new HashSet<IDetectable>();
-        private readonly HashSet<string> _injectedIds = new HashSet<string>();
-        private readonly HashSet<IDetectable> _allDetectedObjects = new HashSet<IDetectable>();
-        private readonly Dictionary<IDetectable, float> _distances = new Dictionary<IDetectable, float>();
         private readonly List<IDetectable> _injectorOutput = new List<IDetectable>();
-        private readonly Dictionary<string, EvaluationTrace> _changeTraces = new Dictionary<string, EvaluationTrace>();
-        // Targets are tracked by ID. These hold the live instance of each ID for the refresh that is running.
-        private readonly Dictionary<IDetectable, string> _ids = new Dictionary<IDetectable, string>();
-        private readonly Dictionary<string, IDetectable> _seenById = new Dictionary<string, IDetectable>();
-        private readonly Dictionary<string, IDetectable> _detectedById = new Dictionary<string, IDetectable>();
+        private RefreshEntry[] _entries = new RefreshEntry[64];
+        private int _entryCount;
+        // Targets are tracked by ID. This finds a target's entry by ID, and is the only ID lookup that grows with the object count.
+        private readonly Dictionary<string, int> _indexById = new Dictionary<string, int>();
+        // The public lists are only for the debug views and tests, so they are built from the entries when someone reads them.
+        private readonly List<IDetectable> _candidatesView = new List<IDetectable>();
+        private readonly List<IDetectable> _injectedView = new List<IDetectable>();
+        private readonly HashSet<IDetectable> _detectedView = new HashSet<IDetectable>();
+        private readonly Dictionary<IDetectable, float> _distancesView = new Dictionary<IDetectable, float>();
+        private bool _viewsAreStale;
         private readonly Dictionary<Condition, bool> _debugResults = new Dictionary<Condition, bool>();
         private readonly List<IDetectable> _gained = new List<IDetectable>();
         private readonly List<IDetectable> _lost = new List<IDetectable>();
@@ -220,14 +256,8 @@ namespace SensorSystem
             _lost.Clear();
             _detectionsCollection.RemoveAllItems(_lost);
             NotifyConditions();
-            _allDetectedObjects.Clear();
-            _candidates.Clear();
-            _injected.Clear();
-            _injectedIds.Clear();
-            _distances.Clear();
-            _ids.Clear();
-            _seenById.Clear();
-            _detectedById.Clear();
+            ClearEntries();
+            _viewsAreStale = true;
             _debugResults.Clear();
             _visuals.Clear();
 
@@ -246,13 +276,44 @@ namespace SensorSystem
         /// <summary>True when the object was added by an injector in the last refresh. Matched by ID.</summary>
         public bool WasInjected(IDetectable target)
         {
-            return target.TryGetId(out string id) && _injectedIds.Contains(id);
+            return target.TryGetId(out string id) && _indexById.TryGetValue(id, out int index) && _entries[index].Injected;
         }
 
         /// <summary>Everything currently detected. Treat it as read-only.</summary>
         public HashSet<IDetectable> GetAllDetectedObjects()
         {
-            return _allDetectedObjects;
+            BuildViews();
+            return _detectedView;
+        }
+
+        private void BuildViews()
+        {
+            if (!_viewsAreStale) return;
+
+            _viewsAreStale = false;
+            _candidatesView.Clear();
+            _injectedView.Clear();
+            _detectedView.Clear();
+            _distancesView.Clear();
+
+            for (int i = 0; i < _entryCount; i++)
+            {
+                ref RefreshEntry entry = ref _entries[i];
+                (entry.Injected ? _injectedView : _candidatesView).Add(entry.Target);
+                _distancesView[entry.Target] = entry.Distance;
+                if (entry.Passed)
+                {
+                    _detectedView.Add(entry.Target);
+                }
+            }
+        }
+
+        private void ClearEntries()
+        {
+            // Lets go of the objects too, so a destroyed target is not kept alive by the array.
+            Array.Clear(_entries, 0, _entryCount);
+            _entryCount = 0;
+            _indexById.Clear();
         }
 
         /// <summary>The sensor will ignore this object from now on. It is remembered by ID.</summary>
@@ -311,116 +372,187 @@ namespace SensorSystem
 
         private void Refresh()
         {
+            using (SensorProfiler.Refresh.Measure())
+            {
+                RefreshCore();
+            }
+        }
+
+        private void RefreshCore()
+        {
             var context = new SensorContext(transform, ContextCamera, Time.time, _trace);
             // The same context with somewhere to draw. Used for the targets that should be drawn.
             bool anyVisuals = _runtimeNodes.Exists(node => node.WantsVisuals);
             var visualContext = anyVisuals ? new SensorContext(transform, ContextCamera, Time.time, _trace, _visuals) : context;
             _visuals.Clear();
 
+            using (SensorProfiler.Prepare.Measure())
             foreach (Condition node in _runtimeNodes)
             {
                 node.Prepare(context);
             }
 
-            CollectCandidates();
-            _allDetectedObjects.Clear();
-            _detectedById.Clear();
-            _changeTraces.Clear();
+            using (SensorProfiler.CollectCandidates.Measure()) CollectCandidates();
             _debugResults.Clear();
 
             string debugTargetId = null;
             DebugTarget?.TryGetId(out debugTargetId);
 
-            foreach (IDetectable candidate in _candidates)
+            using (SensorProfiler.EvaluateTree.Measure())
             {
-                string id = _ids[candidate];
-                bool isDebugTarget = id == debugTargetId;
-                _trace.Clear();
-                _trace.RecordNodes = isDebugTarget;
+                for (int i = 0; i < _entryCount; i++)
+                {
+                    ref RefreshEntry entry = ref _entries[i];
+                    bool isDebugTarget = debugTargetId != null && entry.Id == debugTargetId;
+                    _trace.Clear();
+                    _trace.RecordNodes = isDebugTarget;
 
-                bool passed = false;
-                try
-                {
-                    // With a picked object only that one is drawn, which keeps the scene readable and cheap.
-                    bool draw = debugTargetId == null || isDebugTarget;
-                    passed = Condition.Run(RuntimeRoot, candidate, draw ? visualContext : context);
-                }
-                catch (Exception e)
-                {
-                    // A target that vanished while it was being evaluated just fails. Anything else is a real bug in a condition.
-                    if (candidate.IsAlive())
+                    bool passed = false;
+                    try
                     {
-                        Debug.LogException(e, this);
+                        // With a picked object only that one is drawn, which keeps the scene readable and cheap.
+                        // The context carries the position and ID already read for this target, so conditions do not ask the target again.
+                        SensorContext targetContext = (debugTargetId == null || isDebugTarget ? visualContext : context)
+                            .ForTarget(entry.Target, entry.Position, entry.Id);
+                        passed = Condition.Run(RuntimeRoot, entry.Target, targetContext);
                     }
-                }
-
-                if (passed)
-                {
-                    _allDetectedObjects.Add(candidate);
-                    _detectedById[id] = candidate;
-                }
-                if (passed != _detectionsCollection.ContainsKey(id))
-                {
-                    _changeTraces[id] = _trace.Snapshot();
-                }
-                if (isDebugTarget)
-                {
-                    foreach (KeyValuePair<Condition, bool> result in _trace.NodeResults)
+                    catch (Exception e)
                     {
-                        _debugResults[result.Key] = result.Value;
+                        // A target that vanished while it was being evaluated just fails. Anything else is a real bug in a condition.
+                        if (entry.Target.IsAlive())
+                        {
+                            Debug.LogException(e, this);
+                        }
+                    }
+
+                    entry.Passed = passed;
+                    if (passed != (entry.Detection != null))
+                    {
+                        entry.Trace = _trace.Snapshot();
+                    }
+                    if (isDebugTarget)
+                    {
+                        foreach (KeyValuePair<Condition, bool> result in _trace.NodeResults)
+                        {
+                            _debugResults[result.Key] = result.Value;
+                        }
                     }
                 }
             }
             _trace.RecordNodes = false;
 
-            AddInjectedDetections(context);
-            RecordDistances();
+            using (SensorProfiler.Injectors.Measure()) AddInjectedDetections(context);
+            using (SensorProfiler.RecordDistances.Measure()) RecordDistances(context.SensorPosition);
+            _viewsAreStale = true;
 
             _gained.Clear();
             _lost.Clear();
-            _detectionsCollection.UpdateDetectionsCollection(this, _detectedById, _seenById, _changeTraces, _gained, _lost);
-            NotifyConditions();
+            using (SensorProfiler.UpdateDetections.Measure()) UpdateDetections();
+            using (SensorProfiler.NotifyConditions.Measure()) NotifyConditions();
         }
 
-        private void RecordDistances()
+        // The positions were read when the entries were made, so this is arithmetic only.
+        private void RecordDistances(Vector3 sensorPosition)
         {
-            _distances.Clear();
-            Vector3 position = transform.position;
-
-            foreach (IDetectable candidate in _candidates)
+            for (int i = 0; i < _entryCount; i++)
             {
-                _distances[candidate] = Vector3.Distance(position, candidate.GetCenterPosition());
+                ref RefreshEntry entry = ref _entries[i];
+                entry.Distance = Vector3.Distance(sensorPosition, entry.Position);
             }
-            foreach (IDetectable detection in _injected)
+        }
+
+        /// <summary>
+        /// Makes the detections match this refresh. Each entry already holds its detection, so nothing is looked up by ID unless
+        /// something changed. An event handler can switch this sensor off part way, which empties the entries, so the
+        /// loops re-read the count.
+        /// </summary>
+        private void UpdateDetections()
+        {
+            float now = Time.time;
+            int kept = 0;
+
+            for (int i = 0; i < _entryCount; i++)
             {
-                _distances[detection] = Vector3.Distance(position, detection.GetCenterPosition());
+                ref RefreshEntry entry = ref _entries[i];
+                Detection detection = entry.Detection;
+                if (detection == null) continue;
+
+                if (entry.Passed)
+                {
+                    detection.Refresh(entry.Target, entry.Distance, entry.Position, now);
+                    kept++;
+                }
+                else
+                {
+                    _detectionsCollection.RemoveFailed(detection, entry.Trace, _lost);
+                }
+            }
+
+            // Anything more than what was kept is a detection whose target was not found at all.
+            if (_detectionsCollection.Count > kept)
+            {
+                _detectionsCollection.RemoveMissing(_indexById, _lost);
+            }
+
+            for (int i = 0; i < _entryCount; i++)
+            {
+                ref RefreshEntry entry = ref _entries[i];
+                if (!entry.Passed || entry.Detection != null) continue;
+
+                _gained.Add(entry.Target);
+                _detectionsCollection.AddNew(entry.Target, entry.Id, this, entry.Trace, entry.Distance);
             }
         }
 
         private void CollectCandidates()
         {
-            _candidates.Clear();
-            _ids.Clear();
-            _seenById.Clear();
+            ClearEntries();
 
             if (_allObjectsCollection == null) return;
 
+            // Usually far fewer objects are detected than seen, so the detections are matched to the entries from the
+            // detections' side: one ID lookup per detection instead of one per object.
+            bool fromDetections = _detectionsCollection.Count < _allObjectsCollection.AllObjects.Count;
+
             foreach (IDetectable candidate in _allObjectsCollection.AllObjects)
             {
-                if (TryRegister(candidate, out _))
+                TryRegister(candidate, !fromDetections, out _);
+            }
+
+            if (fromDetections && _detectionsCollection.Count > 0)
+            {
+                foreach (KeyValuePair<string, Detection> pair in _detectionsCollection.Items)
                 {
-                    _candidates.Add(candidate);
+                    if (_indexById.TryGetValue(pair.Key, out int index))
+                    {
+                        _entries[index].Detection = pair.Value;
+                    }
                 }
             }
         }
 
+        private bool IsBlackListed(string id)
+        {
+            int count = _detectedObjectsBlackList.Count;
+            if (count == 0) return false;
+            if (count > 4) return _detectedObjectsBlackList.Contains(id);
+
+            // A sensor usually ignores only itself. Comparing a few strings is cheaper than hashing the ID.
+            foreach (string ignored in _detectedObjectsBlackList)
+            {
+                if (string.Equals(ignored, id)) return true;
+            }
+            return false;
+        }
+
         /// <summary>
-        /// Records a live target under its ID for this refresh. Gone targets, targets without an ID, ignored ones
+        /// Adds an entry for a live target for this refresh. Gone targets, targets without an ID, ignored ones
         /// and a second target with an ID that is already taken are skipped.
         /// </summary>
-        private bool TryRegister(IDetectable target, out string id)
+        private bool TryRegister(IDetectable target, bool findDetection, out int index)
         {
-            if (!target.TryGetId(out id))
+            index = -1;
+            if (!target.TryGetId(out string id))
             {
                 if (target.IsAlive() && !_warnedAboutMissingId)
                 {
@@ -430,9 +562,9 @@ namespace SensorSystem
                 return false;
             }
 
-            if (_detectedObjectsBlackList.Contains(id)) return false;
+            if (IsBlackListed(id)) return false;
 
-            if (_seenById.ContainsKey(id))
+            if (!_indexById.TryAdd(id, _entryCount))
             {
                 if (!_warnedAboutDuplicateId)
                 {
@@ -442,16 +574,26 @@ namespace SensorSystem
                 return false;
             }
 
-            _seenById[id] = target;
-            _ids[target] = id;
+            if (_entryCount == _entries.Length)
+            {
+                Array.Resize(ref _entries, _entries.Length * 2);
+            }
+
+            index = _entryCount++;
+            ref RefreshEntry entry = ref _entries[index];
+            entry.Target = target;
+            entry.Id = id;
+            // Read once here for the whole refresh: the conditions, the distance and the detection all use it.
+            entry.Position = target.GetCenterPosition();
+            if (findDetection && _detectionsCollection.Count > 0)
+            {
+                _detectionsCollection.TryGetValue(id, out entry.Detection);
+            }
             return true;
         }
 
         private void AddInjectedDetections(in SensorContext context)
         {
-            _injected.Clear();
-            _injectedIds.Clear();
-
             foreach (DetectionInjector injector in _runtimeInjectors)
             {
                 if (injector == null) continue;
@@ -462,18 +604,17 @@ namespace SensorSystem
 
                 foreach (IDetectable detection in _injectorOutput)
                 {
-                    if (!TryRegister(detection, out string id)) continue;
+                    if (!TryRegister(detection, true, out int index)) continue;
 
-                    _injected.Add(detection);
-                    _injectedIds.Add(id);
-                    _allDetectedObjects.Add(detection);
-                    _detectedById[id] = detection;
+                    ref RefreshEntry entry = ref _entries[index];
+                    entry.Injected = true;
+                    entry.Passed = true;
 
-                    if (!_detectionsCollection.ContainsKey(id) && !_changeTraces.ContainsKey(id))
+                    if (entry.Detection == null)
                     {
                         var trace = new EvaluationTrace();
                         trace.Passed.Add(injector.DisplayName);
-                        _changeTraces[id] = trace;
+                        entry.Trace = trace;
                     }
                 }
             }
@@ -499,12 +640,12 @@ namespace SensorSystem
 
         private void OnNewDetection(KeyValuePair<string, Detection> keyValuePair)
         {
-            OnNewDetectionEvent?.Invoke(keyValuePair.Value);
+            using (SensorProfiler.Events.Measure()) OnNewDetectionEvent?.Invoke(keyValuePair.Value);
         }
 
         private void OnLostDetection(KeyValuePair<string, Detection> keyValuePair)
         {
-            OnLostDetectionEvent?.Invoke(keyValuePair.Value);
+            using (SensorProfiler.Events.Measure()) OnLostDetectionEvent?.Invoke(keyValuePair.Value);
         }
 
 #if UNITY_EDITOR
@@ -519,7 +660,8 @@ namespace SensorSystem
             }
 
             // Each condition that has its visual on draws its own shape, in its own color.
-            foreach (Condition node in ConditionTree.Flatten(RuntimeRoot ?? _settings.Root))
+            // This runs on every repaint, so while playing it uses the list the sensor already keeps.
+            foreach (Condition node in RuntimeRoot != null ? _runtimeNodes : ConditionTree.Flatten(_settings.Root))
             {
                 Gizmos.color = node is VisualCondition visual ? visual.GizmoColor : Color.white;
                 node.DrawGizmos(transform, ContextCamera);

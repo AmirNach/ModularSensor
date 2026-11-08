@@ -16,12 +16,12 @@ namespace SensorSystem
 
         public override bool Evaluate(IDetectable target, in SensorContext context)
         {
-            Transform sensor = context.SensorTransform;
-            float yaw = AngleUtil.GetYaw(sensor.position, sensor.rotation, target.GetCenterPosition());
+            Vector3 position = context.PositionOf(target);
+            float yaw = AngleUtil.GetYaw(context.SensorPosition, context.SensorRotation, position);
             bool passed = AngleUtil.IsYawWithin(yaw, MinAngle, MaxAngle);
 
             // A small cross under the target: green when it is inside the angles, red when it is not.
-            VisualsFor(context)?.Cross(target.GetCenterPosition() + Vector3.down * 0.6f, 0.3f, ColorOf(passed));
+            VisualsFor(context)?.Cross(position + Vector3.down * 0.6f, 0.3f, ColorOf(passed));
             return passed;
         }
 

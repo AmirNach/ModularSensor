@@ -20,12 +20,13 @@ namespace SensorSystem
         {
             if (context.Camera == null) return false;
 
-            Vector3 point = context.Camera.WorldToViewportPoint(target.GetCenterPosition());
+            Vector3 position = context.PositionOf(target);
+            Vector3 point = context.Camera.WorldToViewportPoint(position);
             bool passed = point.z > 0f
                 && point.x >= TopLeftCorner.x && point.x <= BottomRightCorner.x
                 && point.y >= BottomRightCorner.y && point.y <= TopLeftCorner.y;
 
-            VisualsFor(context)?.Cross(target.GetCenterPosition(), 0.5f, ColorOf(passed));
+            VisualsFor(context)?.Cross(position, 0.5f, ColorOf(passed));
             return passed;
         }
     }

@@ -18,8 +18,12 @@ namespace SensorSystem
             bool passed = target.GetVelocity() > MinMovingVelocity;
 
             // A short tick above the target: green when it moves fast enough, red when it does not.
-            Vector3 top = target.GetCenterPosition() + Vector3.up * 0.8f;
-            VisualsFor(context)?.Line(top, top + Vector3.up * 0.6f, ColorOf(passed));
+            ConditionVisuals visuals = VisualsFor(context);
+            if (visuals != null)
+            {
+                Vector3 top = context.PositionOf(target) + Vector3.up * 0.8f;
+                visuals.Line(top, top + Vector3.up * 0.6f, ColorOf(passed));
+            }
             return passed;
         }
     }

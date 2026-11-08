@@ -25,7 +25,7 @@ namespace SensorSystem
         {
             if (!(target is IEntityTyped entity)) return 0f;
 
-            float distance = Vector3.Distance(context.SensorTransform.position, target.GetCenterPosition());
+            float distance = Vector3.Distance(context.SensorPosition, context.PositionOf(target));
             return DistanceProbability.Find(GetDistanceProbabilities(entity.EntityType), distance);
         }
 

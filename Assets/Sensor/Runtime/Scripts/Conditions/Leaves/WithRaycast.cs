@@ -19,16 +19,29 @@ namespace SensorSystem
 
         public override bool Evaluate(IDetectable target, in SensorContext context)
         {
-            Vector3 start = context.SensorTransform.position;
-            Vector3 end = target.GetCenterPosition();
+            Vector3 start = context.SensorPosition;
+            Vector3 end = context.PositionOf(target);
             Vector3 direction = end - start;
             float distance = direction.magnitude;
             if (distance < MinDistance) return true;
 
             bool hasHit = Physics.Raycast(start, direction, out RaycastHit hit, distance, ~RaycastIgnoreLayerMask);
-            bool passed = target is Component component
-                ? hasHit && hit.collider.transform.IsChildOf(component.transform)
-                : !hasHit; // Targets without a collider, such as fake detections, only need a clear line.
+            bool passed;
+            if (!(target is Component component))
+            {
+                passed = !hasHit; // Targets without a collider, such as fake detections, only need a clear line.
+            }
+            else if (!hasHit)
+            {
+                passed = false;
+            }
+            else
+            {
+                // The usual pass is a hit on the target's own collider. Comparing IDs answers that without three calls into the engine.
+                int ownCollider = target is IDetectableCollider withCollider ? withCollider.ColliderInstanceId : 0;
+                passed = (ownCollider != 0 && hit.colliderInstanceID == ownCollider)
+                    || hit.collider.transform.IsChildOf(component.transform);
+            }
 
             Visualize(VisualsFor(context), start, end, hasHit, hit.point, passed);
             return passed;

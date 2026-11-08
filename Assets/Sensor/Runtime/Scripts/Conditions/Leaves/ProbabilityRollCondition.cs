@@ -43,18 +43,18 @@ namespace SensorSystem
             bool passed = Roll(target, in context);
 
             // A small cross above the target: green when the roll let it through, red when it did not.
-            VisualsFor(context)?.Cross(target.GetCenterPosition() + Vector3.up * 1.2f, 0.4f, ColorOf(passed));
+            VisualsFor(context)?.Cross(context.PositionOf(target) + Vector3.up * 1.2f, 0.4f, ColorOf(passed));
             return passed;
         }
 
         private bool Roll(IDetectable target, in SensorContext context)
         {
             // Remembered by ID, so a target that comes back as a new instance keeps its state.
-            string id = target.GetIdentifier();
+            string id = context.IdOf(target);
             float probability = GetProbability(target, in context);
             if (probability <= 0f)
             {
-                PassedRoll.Remove(id);
+                ForgetRoll(id);
                 return false;
             }
 
@@ -65,7 +65,7 @@ namespace SensorSystem
                 Attempts.TryGetValue(id, out int attempts);
                 if (attempts >= MaxDetectionAttempts)
                 {
-                    PassedRoll.Remove(id);
+                    ForgetRoll(id);
                     return false;
                 }
                 Attempts[id] = attempts + 1;
@@ -73,19 +73,35 @@ namespace SensorSystem
 
             if (DistanceProbability.Roll(probability))
             {
-                PassedRoll.Add(id);
+                // Remembering a pass is only useful when the next refresh will look it up.
+                if (StopRollingOnceDetected)
+                {
+                    PassedRoll.Add(id);
+                }
                 return true;
             }
 
-            PassedRoll.Remove(id);
+            ForgetRoll(id);
             return false;
         }
 
         public override void OnTargetLost(IDetectable target)
         {
             string id = target.GetIdentifier();
-            PassedRoll.Remove(id);
-            Attempts.Remove(id);
+            ForgetRoll(id);
+            if (_attempts != null && _attempts.Count > 0)
+            {
+                _attempts.Remove(id);
+            }
+        }
+
+        // Most objects never passed a roll, so there is usually nothing to remove and no ID worth hashing.
+        private void ForgetRoll(string id)
+        {
+            if (_passedRoll != null && _passedRoll.Count > 0)
+            {
+                _passedRoll.Remove(id);
+            }
         }
     }
 }

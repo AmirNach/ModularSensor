@@ -9,6 +9,9 @@ namespace SensorSystem
     /// </summary>
     public sealed class DetectableSnapshot : IDetectable, IEntityTyped
     {
+        // The instance the name and type were last read from.
+        private IDetectable _source;
+
         public string Identifier { get; private set; } = string.Empty;
         public string DetectionType { get; private set; } = string.Empty;
         public string Name { get; private set; } = string.Empty;
@@ -60,6 +63,7 @@ namespace SensorSystem
                 IsFake = isFake;
                 EntityType = entityType;
                 LastSeenTime = Time.time;
+                _source = live;
                 return true;
             }
             catch (Exception)
@@ -68,19 +72,33 @@ namespace SensorSystem
             }
         }
 
-        /// <summary>Takes over another snapshot's values, keeping this one's ID.</summary>
-        public void CopyFrom(DetectableSnapshot other)
+        /// <summary>
+        /// The sensor's update on each refresh, for a target it already knows is alive and has already measured.
+        /// Name, type and the other values that do not change are read again only when the target comes back as a new instance,
+        /// since reading a Unity object's name creates a new string every time.
+        /// </summary>
+        internal void Refresh(IDetectable live, Vector3 position, float now)
         {
-            if (other == null || ReferenceEquals(other, this)) return;
+            if (!ReferenceEquals(live, _source))
+            {
+                Update(live);
+                return;
+            }
 
-            DetectionType = other.DetectionType;
-            Name = other.Name;
-            EntityType = other.EntityType;
-            IsFake = other.IsFake;
-            Position = other.Position;
-            Speed = other.Speed;
-            Bounds = other.Bounds;
-            LastSeenTime = other.LastSeenTime;
+            try
+            {
+                float speed = live.GetVelocity();
+                Bounds bounds = live.Bounds;
+
+                Position = position;
+                Speed = speed;
+                Bounds = bounds;
+                LastSeenTime = now;
+            }
+            catch (Exception)
+            {
+                // It went away during this refresh. The values from the last good read stay.
+            }
         }
     }
 }

@@ -183,7 +183,7 @@ To write your own, inherit `DetectionInjector` and add your detections in `Colle
 
 ## Plug in your own objects
 
-By default a sensor scans colliders on its layer mask for an `IDetectable`. To get objects from somewhere else, implement `IAllObjectsCollection` and override `Sensor.CreateAllObjectsCollection`:
+By default a sensor takes the objects in the detectable registry (below) that are on its layer mask. To get objects from somewhere else, implement `IAllObjectsCollection` and override `Sensor.CreateAllObjectsCollection`:
 
 ```csharp
 public class MySensor : Sensor
@@ -191,6 +191,17 @@ public class MySensor : Sensor
     protected override IAllObjectsCollection CreateAllObjectsCollection() => new MyCollection();
 }
 ```
+
+### The detectable registry
+
+Sensors do not search the scene. Every detectable object is kept in `DetectableRegistry`, and the default collection reads it once a second and keeps the ones on the sensor's layer mask. `DetectableEntity` registers itself when it is enabled and leaves when it is disabled or destroyed. Anything else that implements `IDetectable`, such as a wrapper around an object from another program, does the same:
+
+```csharp
+void OnEnable()  => DetectableRegistry.Register(this);
+void OnDisable() => DetectableRegistry.Unregister(this);
+```
+
+A component uses its GameObject's layer for the layer mask. Implement `IDetectableLayer` to give another layer, and an object that is not a component is always included. If you have `IDetectable` components that never register, set `DetectableRegistry.IncludeUnregisteredSceneObjects = true` to bring back the old search through every collider. It is off by default because it is slow in big scenes.
 
 ## Working in a team
 

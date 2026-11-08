@@ -246,5 +246,51 @@ namespace SensorSystem.Tests
 
             Assert.IsEmpty(_gained);
         }
+
+        [UnityTest]
+        public IEnumerator DetectableEntity_RegistersWhileEnabled_AndTheDefaultCollectionFindsIt()
+        {
+            GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _created.Add(cube);
+            DetectableEntity entity = cube.AddComponent<DetectableEntity>();
+            Assert.IsTrue(DetectableRegistry.IsRegistered(entity), "Registered when it is enabled.");
+
+            var collection = new AllSimpleObjectsCollection(~0);
+            yield return null;
+            CollectionAssert.Contains(collection.AllObjects, entity);
+
+            entity.enabled = false;
+            Assert.IsFalse(DetectableRegistry.IsRegistered(entity), "Unregistered when it is disabled.");
+
+            Object.Destroy(cube);
+            yield return null;
+            Assert.IsFalse(DetectableRegistry.IsRegistered(entity));
+            collection.SetEnable(false);
+        }
+
+        [UnityTest]
+        public IEnumerator ADetectableThatRegistersItself_IsFoundByASensor()
+        {
+            var wrapper = new Wrapper("registered", new Vector3(0f, 0f, 5f));
+            DetectableRegistry.Register(wrapper);
+            var settings = ScriptableObject.CreateInstance<SensorSettings>();
+            typeof(SensorSettings).GetField("_refreshRate", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(settings, SensorSettings.MinRefreshRate);
+            settings.Root = new SwitchableCondition();
+            _created.Add(settings);
+
+            var owner = new GameObject("Sensor");
+            owner.SetActive(false);
+            Sensor sensor = owner.AddComponent<Sensor>();
+            typeof(Sensor).GetField("_settings", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(sensor, settings);
+            sensor.OnNewDetectionEvent += _gained.Add;
+            _created.Add(owner);
+            owner.SetActive(true);
+
+            yield return new WaitForSeconds(RefreshWait + 0.6f);
+            DetectableRegistry.Unregister(wrapper);
+
+            Assert.AreEqual(1, _gained.Count);
+            Assert.AreEqual("registered", _gained[0].TargetId);
+        }
     }
 }

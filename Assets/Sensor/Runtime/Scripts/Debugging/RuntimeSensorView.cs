@@ -59,13 +59,22 @@ namespace SensorSystem
 
         public void Refresh()
         {
+            using (SensorProfiler.OverlayRefresh.Measure())
+            {
+                RefreshCore();
+            }
+        }
+
+        private void RefreshCore()
+        {
             if (_sensor == null) return;
 
             _tree.Refresh();
             RefreshInjectors();
 
-            List<TargetRow> rows = TargetRows.ForSensor(_sensor);
-            _targets.SetRows(rows);
+            List<TargetRow> rows;
+            using (SensorProfiler.OverlayRows.Measure()) rows = TargetRows.ForSensor(_sensor);
+            using (SensorProfiler.OverlayList.Measure()) _targets.SetRows(rows);
             _targets.SetSelected(_sensor.DebugTarget);
 
             _message.text = rows.Count > 0 ? string.Empty : _sensor.isActiveAndEnabled ? "No objects found yet." : "This sensor is off.";

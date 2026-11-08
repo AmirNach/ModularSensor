@@ -6,12 +6,17 @@ using UnityEngine;
 
 namespace SensorSystem
 {
-    /// <summary>Periodically scans the scene for colliders on the layer mask that belong to an IDetectable.</summary>
+    /// <summary>
+    /// Once a second, updates the list of objects a sensor may detect: the ones in the DetectableRegistry that are on the layer mask.
+    /// The two sets are swapped instead of rebuilt, so a scan does not create garbage. With
+    /// DetectableRegistry.IncludeUnregisteredSceneObjects on, it also searches every collider for IDetectable components that never registered.
+    /// </summary>
     public class AllSimpleObjectsCollection : AbstractObjectCollection<AllSimpleObjectsCollection>
     {
         private const float RefreshRateInSec = 1f;
 
         private CancellationTokenSource _cancellation;
+        private HashSet<IDetectable> _spare = new HashSet<IDetectable>();
 
         public AllSimpleObjectsCollection(int layerMask) : base(layerMask) { }
 
@@ -35,7 +40,7 @@ namespace SensorSystem
             {
                 while (!token.IsCancellationRequested)
                 {
-                    Scan();
+                    using (SensorProfiler.Scan.Measure()) Scan();
                     // Unity resumes this on the main thread.
                     await Task.Delay(TimeSpan.FromSeconds(RefreshRateInSec), token);
                 }
@@ -49,13 +54,33 @@ namespace SensorSystem
 
         private void Scan()
         {
-            var found = new HashSet<IDetectable>();
-            Collider[] allColliders = UnityEngine.Object.FindObjectsByType<Collider>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-
-            foreach (Collider collider in allColliders)
+            // Fill the spare set, then swap it in, so a sensor reading AllObjects never sees a half-built list.
+            _spare.Clear();
+            DetectableRegistry.CollectInto(_spare, LayerMask);
+            if (DetectableRegistry.IncludeUnregisteredSceneObjects)
             {
-                if (IsLayerInLayerMask(LayerMask, collider.gameObject.layer))
+                AddUnregisteredFromScene(_spare);
+            }
+
+            HashSet<IDetectable> previous = AllObjects;
+            AllObjects = _spare;
+            _spare = previous;
+        }
+
+        private void AddUnregisteredFromScene(HashSet<IDetectable> found)
+        {
+            Collider[] allColliders;
+            using (SensorProfiler.ScanFindObjects.Measure())
+            {
+                allColliders = UnityEngine.Object.FindObjectsByType<Collider>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            }
+
+            using (SensorProfiler.ScanFilter.Measure())
+            {
+                foreach (Collider collider in allColliders)
                 {
+                    if (!IsLayerInLayerMask(LayerMask, collider.gameObject.layer)) continue;
+
                     IDetectable detectable = collider.GetComponentInParent<IDetectable>();
                     if (detectable != null)
                     {
@@ -63,8 +88,6 @@ namespace SensorSystem
                     }
                 }
             }
-
-            AllObjects = found;
         }
     }
 }

@@ -35,8 +35,14 @@ namespace SensorSystem
 
         public override bool Evaluate(IDetectable target, in SensorContext context)
         {
-            target.SetBoundsCenter();
-            return GeometryUtility.TestPlanesAABB(_planes, target.Bounds);
+            Bounds bounds = target.Bounds;
+            Vector3 center = context.PositionOf(target);
+            if (bounds.center != center)
+            {
+                bounds.center = center;
+                target.Bounds = bounds;
+            }
+            return GeometryUtility.TestPlanesAABB(_planes, bounds);
         }
 
         public override void DrawGizmos(Transform sensorTransform, Camera camera)

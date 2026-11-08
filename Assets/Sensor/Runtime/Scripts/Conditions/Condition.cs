@@ -50,7 +50,19 @@ namespace SensorSystem
         {
             if (condition == null) return false;
 
-            bool result = condition.Evaluate(target, context);
+            bool result;
+            if (SensorProfiler.MeasureConditions && SensorProfiler.Enabled)
+            {
+                using (SensorProfiler.ForCondition(condition).Measure())
+                {
+                    result = condition.Evaluate(target, context);
+                }
+            }
+            else
+            {
+                result = condition.Evaluate(target, context);
+            }
+
             EvaluationTrace trace = context.Trace;
             if (trace != null)
             {

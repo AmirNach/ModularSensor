@@ -16,7 +16,7 @@ namespace SensorSystem
 
         protected override float GetProbability(IDetectable target, in SensorContext context)
         {
-            float distance = GetDistance(context.SensorTransform.position, target.GetCenterPosition());
+            float distance = GetDistance(context.SensorPosition, context.PositionOf(target));
             return DistanceProbability.Find(DistanceProbabilities, distance);
         }
     }

@@ -49,6 +49,14 @@ namespace SensorSystem
 
         public void Refresh()
         {
+            using (SensorProfiler.OverlayRefresh.Measure())
+            {
+                RefreshCore();
+            }
+        }
+
+        private void RefreshCore()
+        {
             if (_detector == null) return;
 
             List<Sensor> sensors = _detector.Sensors.Where(sensor => sensor != null).ToList();
@@ -61,12 +69,13 @@ namespace SensorSystem
                 ids[detection.TargetId] = detection.ID;
             }
 
-            List<TargetRow> rows = TargetRows.ForDetector(snapshots, ids);
+            List<TargetRow> rows;
+            using (SensorProfiler.OverlayRows.Measure()) rows = TargetRows.ForDetector(snapshots, ids);
             if (_picked != null && !_picked.IsAlive())
             {
                 _picked = null;
             }
-            _targets.SetRows(rows);
+            using (SensorProfiler.OverlayList.Measure()) _targets.SetRows(rows);
             _targets.SetSelected(_picked);
 
             _message.text = rows.Count > 0 ? string.Empty : _detector.isActiveAndEnabled ? "No objects found yet." : "This detector is off.";
