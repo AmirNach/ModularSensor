@@ -81,6 +81,15 @@ public class StressTestController : MonoBehaviour
 
     private void OnDisable()
     {
+#if UNITY_EDITOR
+        // Leaving Play mode destroys the spawned cubes. If one is selected, the Inspector keeps drawing its collider editor
+        // for an object that no longer exists and logs MissingReference / SerializedObjectNotCreatable errors.
+        if (UnityEditor.Selection.activeTransform != null && _container != null
+            && UnityEditor.Selection.activeTransform.IsChildOf(_container))
+        {
+            UnityEditor.Selection.activeObject = null;
+        }
+#endif
         SensorProfiler.Enabled = false;
         _gcRecorder.Dispose();
         if (Detector != null)

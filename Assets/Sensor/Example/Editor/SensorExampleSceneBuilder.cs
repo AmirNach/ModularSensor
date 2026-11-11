@@ -21,6 +21,8 @@ public static class SensorExampleSceneBuilder
         DetectorSettings detectorSettings = LoadOrCreateAsset<DetectorSettings>(DetectorSettingsPath);
         AssetDatabase.SaveAssets();
 
+        // The old scene's objects are about to be destroyed. A selected one would leave the Inspector drawing a dead object.
+        Selection.activeObject = null;
         var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
         Camera camera = Camera.main;

@@ -38,11 +38,17 @@ namespace SensorSystem
         }
     }
 
+    /// <summary>A distance band (from the previous band's distance up to this one) and the percent of a fake type that falls in it.</summary>
     [Serializable]
-    public class DistanceWeight
+    public class DistancePercent
     {
-        [Tooltip("Meters. Applies from the previous entry's distance up to this one.")]
-        [Min(0f)] public float Distance;
-        [Min(0f)] public float Weight;
+        [Tooltip("The band runs from the previous band's distance (0 for the first) up to this many meters from the sensor.")]
+        [UnityEngine.Serialization.FormerlySerializedAs("Distance")]
+        [Min(0f)] public float UpToMeters;
+
+        [Tooltip("Of this type's fakes, the percent that appear in this band. The bands of a type add up to 100%.")]
+        [UnityEngine.Serialization.FormerlySerializedAs("Percent")]
+        [UnityEngine.Serialization.FormerlySerializedAs("Weight")]
+        [Range(0f, 100f)] public float PercentOfThisType;
     }
 }

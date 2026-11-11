@@ -35,7 +35,7 @@ namespace SensorSystem
             }
         }
 
-        /// <summary>Hides a field while the bool named by its [ShowIf] attribute is off.</summary>
+        /// <summary>Hides a field while the bool named by its [ShowIf] attribute is not the value that shows it.</summary>
         private static void ApplyShowIf(PropertyField propertyField, SerializedProperty owner, string fieldName, Type ownerType)
         {
             FieldInfo info = ownerType?.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
@@ -45,7 +45,7 @@ namespace SensorSystem
             SerializedProperty condition = owner.FindPropertyRelative(attribute.BoolField);
             if (condition == null || condition.propertyType != SerializedPropertyType.Boolean) return;
 
-            void Update(SerializedProperty changed) => propertyField.style.display = changed.boolValue ? DisplayStyle.Flex : DisplayStyle.None;
+            void Update(SerializedProperty changed) => propertyField.style.display = changed.boolValue == attribute.ShowWhen ? DisplayStyle.Flex : DisplayStyle.None;
             Update(condition);
             propertyField.TrackPropertyValue(condition, Update);
         }

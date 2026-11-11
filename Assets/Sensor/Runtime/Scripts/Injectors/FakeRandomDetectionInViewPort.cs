@@ -11,6 +11,8 @@ namespace SensorSystem
         public Vector2 TopLeftCorner = new Vector2(0f, 1f);
         public Vector2 BottomRightCorner = new Vector2(1f, 0f);
 
+        public override string DisplayName => "Random fake detections in viewport";
+
         protected override Vector3 GetDetectionPosition(float distance)
         {
             if (Camera == null) return base.GetDetectionPosition(distance);
@@ -21,8 +23,11 @@ namespace SensorSystem
                 distance);
             Vector3 worldPoint = Camera.ViewportToWorldPoint(viewportPoint);
             Vector3 cameraPosition = Camera.transform.position;
+            Vector3 toPoint = worldPoint - cameraPosition;
 
-            if (Physics.Raycast(cameraPosition, (worldPoint - cameraPosition).normalized, out RaycastHit hit))
+            // Something in the way, nearer than the chosen distance, is where the fake shows. Without the limit, a hill far
+            // behind would win and the distance weights would mean nothing. Triggers are not surfaces.
+            if (Physics.Raycast(cameraPosition, toPoint.normalized, out RaycastHit hit, toPoint.magnitude, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             {
                 return hit.point;
             }

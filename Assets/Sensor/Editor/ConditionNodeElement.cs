@@ -20,6 +20,9 @@ namespace SensorSystem
         private readonly string _path;
         private readonly List<ConditionNodeElement> _childNodes = new List<ConditionNodeElement>();
 
+        // How many shapes an area condition had at the last refresh, to name the ones the list's + button adds.
+        private int _shapeCount;
+
         public ConditionNodeElement(ConditionTreeView view, Condition node, Condition parentNode, string path)
         {
             _view = view;
@@ -50,11 +53,14 @@ namespace SensorSystem
 
             SetExpanded(view.IsExpanded(path, node), false);
             ExpandedChanged += expanded => view.SetExpandedState(path, expanded);
+            _shapeCount = (node as AreaCondition)?.ShapeCount ?? 0;
             RefreshTexts();
         }
 
         public void RefreshTexts()
         {
+            if (Node is AreaCondition area) NameAddedShapes(area);
+
             SetSummary(Node.Summary);
             SetWarning(GetWarning());
 
@@ -231,7 +237,25 @@ namespace SensorSystem
         {
             if (AcceptsChildren && !HasChildren()) return EmptyOperatorWarning;
             if (Node.RequiresCamera && _view.WarnAboutCamera) return "Needs a SensorWithCamera";
+            if (Node is AreaCondition area) return AreaCondition.FindNameClash(_view.Settings.Root, area) ?? area.FindLabelClash();
             return null;
+        }
+
+        /// <summary>
+        /// The list's + button copies the last shape, label included, so a shape just added gets a unique label right away
+        /// ("Polygon 1" copied becomes "Polygon 2", "Parking" becomes "Parking (2)"). Labels typed by hand are left alone and warned about.
+        /// </summary>
+        private void NameAddedShapes(AreaCondition area)
+        {
+            int previous = _shapeCount;
+            _shapeCount = area.ShapeCount;
+            if (_shapeCount <= previous) return;
+
+            Undo.RecordObject(_view.Settings, "Name added shape");
+            if (area.MakeLabelsUnique(previous) == 0) return;
+
+            EditorUtility.SetDirty(_view.Settings);
+            _view.SerializedSettings.Update();
         }
     }
 

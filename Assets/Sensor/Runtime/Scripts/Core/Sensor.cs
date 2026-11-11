@@ -191,6 +191,29 @@ namespace SensorSystem
             {
                 Debug.LogWarning($"Sensor on {name} has an empty condition tree and no injectors, so it detects nothing.", this);
             }
+
+            // Once per clashing name, for trees that never went through the inspector.
+            HashSet<string> reported = null;
+            foreach (Condition node in _runtimeNodes)
+            {
+                if (!(node is AreaCondition area)) continue;
+
+                string clash = AreaCondition.FindNameClash(RuntimeRoot, area);
+                if (clash != null && (reported ??= new HashSet<string>()).Add(area.GetType().Name + "/" + area.AreaName))
+                {
+                    Debug.LogWarning($"Sensor on {name}: {clash}. FindArea returns only the first one.", this);
+                }
+
+                // Shape labels must be unique for UpdatePolygon / RemoveCircle and the like. Copies typed in the inspector are
+                // renamed in this running copy only (the asset is left as it is); empty labels get "Polygon 2" and the like.
+                if (!area.DefineInInspector) continue;
+                string labelClash = area.FindLabelClash();
+                area.MakeLabelsUnique();
+                if (labelClash != null)
+                {
+                    Debug.LogWarning($"Sensor on {name}, {area.DisplayName} \"{area.AreaName}\": {labelClash}.", this);
+                }
+            }
         }
 
         protected virtual void OnEnable()
@@ -277,6 +300,39 @@ namespace SensorSystem
         public bool WasInjected(IDetectable target)
         {
             return target.TryGetId(out string id) && _indexById.TryGetValue(id, out int index) && _entries[index].Injected;
+        }
+
+        /// <summary>
+        /// Finds an area condition by its AreaName in this sensor's running tree, or null. Change it to change what this
+        /// sensor detects, from the next refresh: sensor.FindArea&lt;InPolygonArea&gt;("Zone A").SetPolygon(points).
+        /// Only this sensor is affected, even when other sensors use the same settings asset.
+        /// </summary>
+        public T FindArea<T>(string areaName) where T : AreaCondition
+        {
+            foreach (Condition node in _runtimeNodes)
+            {
+                if (node is T area && string.Equals(area.AreaName, areaName, StringComparison.Ordinal)) return area;
+            }
+            return null;
+        }
+
+        /// <summary>The first condition of this type in this sensor's running tree, or null. Only this sensor is affected by changing it.</summary>
+        public T FindCondition<T>() where T : Condition
+        {
+            foreach (Condition node in _runtimeNodes)
+            {
+                if (node is T match) return match;
+            }
+            return null;
+        }
+
+        /// <summary>Adds every condition of this type in this sensor's running tree to the list.</summary>
+        public void FindConditions<T>(List<T> results) where T : Condition
+        {
+            foreach (Condition node in _runtimeNodes)
+            {
+                if (node is T match) results.Add(match);
+            }
         }
 
         /// <summary>Everything currently detected. Treat it as read-only.</summary>

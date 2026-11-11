@@ -263,11 +263,13 @@ namespace SensorSystem
         {
             private readonly InjectorListView _list;
             private readonly int _index;
+            private readonly DetectionInjector _injector;
 
             public InjectorCard(InjectorListView list, DetectionInjector injector, int index)
             {
                 _list = list;
                 _index = index;
+                _injector = injector;
                 AddToClassList("sensor-card--injector");
                 Handle.style.display = DisplayStyle.None;
                 Badge.text = "INJECT";
@@ -281,7 +283,14 @@ namespace SensorSystem
 
                 RefreshArrow();
                 SetExpanded(false, false);
-                SetSummary(injector.Summary);
+                RefreshTexts();
+            }
+
+            /// <summary>The summary and the warning, such as percents that do not add up to 100%. Updated as the fields change.</summary>
+            public void RefreshTexts()
+            {
+                SetSummary(_injector.Summary);
+                SetWarning(_injector.Warning);
             }
 
             protected override List<CardMenuEntry> BuildMenu()
@@ -320,6 +329,15 @@ namespace SensorSystem
                 schedule.Execute(Rebuild);
             });
             RegisterCallback<DetachFromPanelEvent>(_ => Undo.undoRedoPerformed -= Rebuild);
+            this.TrackSerializedObjectValue(_serialized, _ => RefreshTexts());
+        }
+
+        private void RefreshTexts()
+        {
+            foreach (VisualElement child in _content.Children())
+            {
+                (child as InjectorCard)?.RefreshTexts();
+            }
         }
 
         private void Edit(Action edit)

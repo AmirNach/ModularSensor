@@ -41,6 +41,8 @@ public static class SensorStressSceneBuilder
         var detectorSettings = LoadOrCreate<DetectorSettings>(DetectorSettingsPath);
         AssetDatabase.SaveAssets();
 
+        // The old scene's objects are about to be destroyed. A selected one would leave the Inspector drawing a dead object.
+        Selection.activeObject = null;
         var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
         // Making a new scene can unload assets that nothing in the scene uses yet, so load them again from disk.

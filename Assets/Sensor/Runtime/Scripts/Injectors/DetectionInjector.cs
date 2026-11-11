@@ -18,6 +18,9 @@ namespace SensorSystem
         /// <summary>Optional one-line description of the settings, shown on collapsed inspector cards.</summary>
         public virtual string Summary => null;
 
+        /// <summary>A problem with the settings to show on the inspector card, or null when there is none.</summary>
+        public virtual string Warning => null;
+
         /// <summary>Called once per refresh, before Collect.</summary>
         public virtual void Prepare(in SensorContext context) { }
 

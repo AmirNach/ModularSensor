@@ -127,6 +127,9 @@ namespace SensorSystem
             SensorEditorStyles.AddSection(_treeArea, "Condition tree", $"Edits are saved to {settings.name}, not the scene, and affect every sensor using it.");
             _treeArea.Add(new ConditionTreeView(settings, !(sensor is SensorWithCamera)));
 
+            SensorEditorStyles.AddSection(_treeArea, "Injected detections", "Added directly to the result, bypassing the tree.");
+            _treeArea.Add(new InjectorListView(settings));
+
             var openWindow = new Button(() => ConditionTreeWindow.Open(settings)) { text = "Open in window" };
             openWindow.AddToClassList("sensor-open-window");
             _treeArea.Add(openWindow);

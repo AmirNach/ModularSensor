@@ -167,6 +167,7 @@ namespace SensorSystem
         public readonly string Tooltip;
         public readonly string Header;
         public readonly string ShowIf;
+        public readonly bool ShowWhen;
         public readonly bool HasMin;
         public readonly float Min;
         public readonly bool HasRange;
@@ -176,7 +177,9 @@ namespace SensorSystem
         {
             Tooltip = field.GetCustomAttribute<TooltipAttribute>()?.tooltip;
             Header = field.GetCustomAttribute<HeaderAttribute>()?.header;
-            ShowIf = field.GetCustomAttribute<ShowIfAttribute>()?.BoolField;
+            var showIf = field.GetCustomAttribute<ShowIfAttribute>();
+            ShowIf = showIf?.BoolField;
+            ShowWhen = showIf?.ShowWhen ?? true;
 
             var range = field.GetCustomAttribute<RangeAttribute>();
             var min = field.GetCustomAttribute<MinAttribute>();
@@ -258,7 +261,8 @@ namespace SensorSystem
             FieldInfo condition = ownerType.GetField(meta.ShowIf, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
             if (condition == null || condition.FieldType != typeof(bool)) return;
 
-            void Update() => control.style.display = (bool)condition.GetValue(getOwner()) ? DisplayStyle.Flex : DisplayStyle.None;
+            bool showWhen = meta.ShowWhen;
+            void Update() => control.style.display = (bool)condition.GetValue(getOwner()) == showWhen ? DisplayStyle.Flex : DisplayStyle.None;
             Update();
             _refreshers.Add(Update);
         }
